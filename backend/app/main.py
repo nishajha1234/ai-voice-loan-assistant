@@ -1,13 +1,23 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import WebSocket
+
 from app.api.health import router as health_router
 from app.api.voice import router as voice_router
+
 from app.websocket.call_ws import websocket_endpoint
 
-app = FastAPI()
+from app.core.config import settings
+
+from app.utils.logger import logger
 
 
+app = FastAPI(
+    title=settings.PROJECT_NAME
+)
+
+
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,15 +27,31 @@ app.add_middleware(
 )
 
 
+# Register Routers
 app.include_router(health_router)
 app.include_router(voice_router)
 
+
 @app.get("/")
 async def root():
+
+    logger.info(
+        "Root endpoint accessed"
+    )
+
     return {
         "message": "AI Voice Loan Assistant Running"
     }
 
+
 @app.websocket("/ws")
-async def websocket_route(websocket: WebSocket):
+async def websocket_route(
+    websocket: WebSocket
+):
+
+    logger.info(
+        f"Incoming websocket connection "
+        f"from {websocket.client}"
+    )
+
     await websocket_endpoint(websocket)
