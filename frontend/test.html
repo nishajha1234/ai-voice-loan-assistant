@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Realtime Voice Test</title>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h2>Realtime Voice Streaming Test</h2>
+
+    <button id="start">Start Recording</button>
+
+    <button id="stop" disabled>
+        Stop Recording
+    </button>
+
+    <div id="status">
+        Status: Disconnected
+    </div>
+
+    <script>
+
+        const statusDiv =
+            document.getElementById("status");
+
+        const startButton =
+            document.getElementById("start");
+
+        const stopButton =
+            document.getElementById("stop");
+
+        let ws = null;
+
+        let mediaRecorder = null;
+
+        let stream = null;
+
+        let chunkCount = 0;
+
+
+        function updateStatus(message) {
+
+            statusDiv.innerText =
+                `Status: ${message}`;
+        }
+
+
+        function connectWebSocket() {
+
+            ws = new WebSocket(
+                "ws://127.0.0.1:8000/ws"
+            );
+
+
+            ws.onopen = () => {
+
+                console.log(
+                    "WebSocket Connected"
+                );
+
+                updateStatus(
+                    "WebSocket Connected"
+                );
+            };
+
+
+            ws.onmessage = (event) => {
+
+                console.log(
+                    "Server:",
+                    event.data
+                );
+            };
+
+
+            ws.onclose = () => {
+
+                console.log(
+                    "WebSocket Closed"
+                );
+
+                updateStatus(
+                    "WebSocket Closed"
+                );
+            };
+
+
+            ws.onerror = (error) => {
+
+                console.error(
+                    "WebSocket Error:",
+                    error
+                );
+
+                updateStatus(
+                    "WebSocket Error"
+                );
+            };
+        }
+
+
+        connectWebSocket();
+
+
+        startButton.onclick = async () => {
+
+            try {
+
+                if (
+                    mediaRecorder &&
+                    mediaRecorder.state === "recording"
+                ) {
+
+                    console.log(
+                        "Already recording"
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    !ws ||
+                    ws.readyState !== WebSocket.OPEN
+                ) {
+
+                    console.log(
+                        "Reconnecting WebSocket..."
+                    );
+
+                    connectWebSocket();
+
+                    await new Promise(resolve =>
+                        setTimeout(resolve, 1000)
+                    );
+                }
+
+
+                chunkCount = 0;
+
+
+                stream =
+                    await navigator.mediaDevices.getUserMedia({
+                        audio: true
+                    });
+
+
+                mediaRecorder =
+                    new MediaRecorder(stream);
+
+
+                mediaRecorder.start(250);
+
+
+                console.log(
+                    "Recording started"
+                );
+
+                updateStatus(
+                    "Recording..."
+                );
+
+
+                startButton.disabled = true;
+
+                stopButton.disabled = false;
+
+
+                mediaRecorder.ondataavailable =
+                    async (event) => {
+
+                    try {
+
+                        if (event.data.size > 0) {
+
+                            const arrayBuffer =
+                                await event.data.arrayBuffer();
+
+
+                            if (
+                                ws &&
+                                ws.readyState === WebSocket.OPEN
+                            ) {
+
+                                ws.send(arrayBuffer);
+
+                                chunkCount++;
+
+                                console.log(
+                                    `Chunk ${chunkCount} sent:`,
+                                    event.data.size,
+                                    "bytes"
+                                );
+                            }
+                        }
+
+                    } catch (error) {
+
+                        console.error(
+                            "Audio send error:",
+                            error
+                        );
+                    }
+                };
+
+            } catch (error) {
+
+                console.error(
+                    "Microphone error:",
+                    error
+                );
+
+                updateStatus(
+                    "Microphone Permission Denied"
+                );
+            }
+        };
+
+
+        stopButton.onclick = () => {
+
+            try {
+
+                if (mediaRecorder) {
+
+                    mediaRecorder.stop();
+
+                    console.log(
+                        "Recording stopped"
+                    );
+                }
+
+
+                if (stream) {
+
+                    stream
+                        .getTracks()
+                        .forEach(track => track.stop());
+                }
+
+
+                if (
+                    ws &&
+                    ws.readyState === WebSocket.OPEN
+                ) {
+
+                    ws.close();
+                }
+
+
+                startButton.disabled = false;
+
+                stopButton.disabled = true;
+
+
+                updateStatus(
+                    "Recording Stopped"
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Stop recording error:",
+                    error
+                );
+            }
+        };
+
+    </script>
+
+</body>
+</html>
