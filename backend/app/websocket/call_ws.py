@@ -9,6 +9,24 @@ from app.services.deepgram_service import (
     DeepgramService
 )
 
+from app.services.session_manager import (
+    SessionManager
+)
+
+from app.services.intent_service import (
+    IntentService
+)
+
+from app.services.state_service import (
+    StateService
+)
+
+from app.core.constants import (
+    MIN_AUDIO_CHUNK_SIZE,
+    AUDIO_LOG_INTERVAL,
+    DEBUG_AUDIO_ACKS
+)
+
 from app.utils.logger import logger
 
 import json
@@ -17,10 +35,9 @@ import time
 import asyncio
 
 
-DEBUG_AUDIO_ACKS = False
-
-MIN_AUDIO_CHUNK_SIZE = 100
-
+# ============================================
+# SAFE JSON SENDER
+# ============================================
 
 async def safe_send_json(
     websocket: WebSocket,
@@ -46,6 +63,10 @@ async def safe_send_json(
         )
 
 
+# ============================================
+# PING HANDLER
+# ============================================
+
 async def handle_ping(
     websocket: WebSocket
 ):
@@ -58,10 +79,16 @@ async def handle_ping(
     )
 
 
+# ============================================
+# TEXT MESSAGE HANDLER
+# ============================================
+
 async def handle_text_message(
     websocket: WebSocket,
     text_data: str,
-    session_id: str
+    session_id: str,
+    session_manager: SessionManager,
+    deepgram_service: DeepgramService
 ):
 
     logger.info(
@@ -73,14 +100,69 @@ async def handle_text_message(
 
         parsed = json.loads(text_data)
 
+        # -----------------------------------
+        # KEEPALIVE PING
+        # -----------------------------------
+
         if parsed.get("type") == "ping":
 
             await handle_ping(websocket)
 
             return
 
-    except Exception:
-        pass
+        # -----------------------------------
+        # LANGUAGE CONFIGURATION
+        # -----------------------------------
+
+        if parsed.get("type") == "language_config":
+
+            selected_language = (
+                parsed.get("language", "multi")
+            )
+
+            session_manager.language = (
+                selected_language
+            )
+
+            logger.info(
+                f"[Session {session_id}] "
+                f"Language set to: "
+                f"{selected_language}"
+            )
+
+            # -----------------------------------
+            # INITIALIZE DEEPGRAM
+            # -----------------------------------
+
+            if not deepgram_service.connection:
+
+                await deepgram_service.setup_connection(
+                    language=selected_language
+                )
+
+                logger.info(
+                    f"[Session {session_id}] "
+                    f"Deepgram initialized "
+                    f"with language: "
+                    f"{selected_language}"
+                )
+
+            await safe_send_json(
+                websocket,
+                {
+                    "type": "language_updated",
+                    "language": selected_language
+                }
+            )
+
+            return
+
+    except Exception as e:
+
+        logger.error(
+            f"[Session {session_id}] "
+            f"Text parse error: {e}"
+        )
 
     await safe_send_json(
         websocket,
@@ -92,6 +174,10 @@ async def handle_text_message(
     )
 
 
+# ============================================
+# AUDIO CHUNK HANDLER
+# ============================================
+
 async def handle_audio_chunk(
     websocket: WebSocket,
     audio_chunk: bytes,
@@ -100,24 +186,34 @@ async def handle_audio_chunk(
     deepgram_service: DeepgramService
 ):
 
-    chunk_received_at = time.perf_counter()
-
     chunk_size = len(audio_chunk)
 
     if chunk_size < MIN_AUDIO_CHUNK_SIZE:
         return
 
-    logger.info(
-        f"[Session {session_id}] "
-        f"Chunk #{chunk_number} "
-        f"({chunk_size} bytes)"
-    )
+    # -----------------------------------
+    # REDUCE EXCESSIVE LOGGING
+    # -----------------------------------
+
+    if chunk_number % AUDIO_LOG_INTERVAL == 0:
+
+        logger.info(
+            f"[Session {session_id}] "
+            f"Chunk #{chunk_number} "
+            f"({chunk_size} bytes)"
+        )
+
+    # -----------------------------------
+    # STREAM AUDIO TO DEEPGRAM
+    # -----------------------------------
 
     try:
 
-        deepgram_service.stream_audio(
-            audio_chunk
-        )
+        if deepgram_service.connection:
+
+            deepgram_service.stream_audio(
+                audio_chunk
+            )
 
     except Exception as e:
 
@@ -126,6 +222,10 @@ async def handle_audio_chunk(
             f"Audio streaming error: {e}"
         )
 
+    # -----------------------------------
+    # OPTIONAL DEBUG ACKS
+    # -----------------------------------
+
     if DEBUG_AUDIO_ACKS:
 
         await safe_send_json(
@@ -133,17 +233,24 @@ async def handle_audio_chunk(
             {
                 "type": "audio_ack",
                 "chunk_number": chunk_number,
-                "size": chunk_size,
-                "received_at": chunk_received_at
+                "size": chunk_size
             }
         )
 
+
+# ============================================
+# MAIN WEBSOCKET ENDPOINT
+# ============================================
 
 async def websocket_endpoint(
     websocket: WebSocket
 ):
 
     await websocket.accept()
+
+    # ========================================
+    # SESSION SETUP
+    # ========================================
 
     session_id = str(uuid.uuid4())
 
@@ -153,15 +260,38 @@ async def websocket_endpoint(
 
     transcript_count = 0
 
+    session_manager = SessionManager()
+
     logger.info(
         f"[Session {session_id}] "
         f"Client connected: "
         f"{websocket.client}"
     )
 
+    # ========================================
+    # SEND SESSION START EVENT
+    # ========================================
+
+    await safe_send_json(
+        websocket,
+        {
+            "type": "session_started",
+            "session_id": session_id,
+            "started_at": connection_start_time
+        }
+    )
+
+    # ========================================
+    # DEEPGRAM SERVICE
+    # ========================================
+
     deepgram_service = DeepgramService()
 
     loop = asyncio.get_running_loop()
+
+    # ========================================
+    # TRANSCRIPT HANDLER
+    # ========================================
 
     async def handle_transcript(
         transcript_data: dict
@@ -169,14 +299,111 @@ async def websocket_endpoint(
 
         nonlocal transcript_count
 
-        if transcript_data.get("is_final"):
+        is_final = (
+            transcript_data.get("is_final")
+        )
+
+        transcript_data[
+            "transcript_processed_at"
+        ] = time.perf_counter()
+
+        # ====================================
+        # FINAL TRANSCRIPT LOGIC
+        # ====================================
+
+        if is_final:
+
             transcript_count += 1
+
+            session_manager.increment_final_transcripts()
+
+            transcript = (
+                transcript_data["transcript"]
+            )
+
+            # --------------------------------
+            # STORE HISTORY
+            # --------------------------------
+
+            session_manager.add_transcript(
+                transcript
+            )
+
+            # --------------------------------
+            # INTENT DETECTION
+            # --------------------------------
+
+            intent = (
+                IntentService.detect_intent(
+                    transcript
+                )
+            )
+
+            session_manager.update_intent(
+                intent
+            )
+
+            # --------------------------------
+            # STATE TRANSITIONS
+            # --------------------------------
+
+            next_state = (
+                StateService.determine_next_state(
+                    session_manager.current_state,
+                    intent,
+                    transcript
+                )
+            )
+
+            session_manager.update_state(
+                next_state
+            )
+
+            transcript_data["intent"] = (
+                intent
+            )
+
+            transcript_data["state"] = (
+                next_state
+            )
+
+            logger.info(
+                f"[Session {session_id}] "
+                f"Intent detected: "
+                f"{intent}"
+            )
+
+            logger.info(
+                f"[Session {session_id}] "
+                f"Next state: "
+                f"{next_state}"
+            )
+
+        # ====================================
+        # DEFAULT FALLBACKS
+        # ====================================
+
+        if "intent" not in transcript_data:
+
+            transcript_data["intent"] = (
+                session_manager.current_intent
+            )
+
+        if "state" not in transcript_data:
+
+            transcript_data["state"] = (
+                session_manager.current_state
+            )
 
         transcript_type = (
             "final"
-            if transcript_data.get("is_final")
+            if is_final
             else "interim"
         )
+
+        # ====================================
+        # SEND TO FRONTEND
+        # ====================================
 
         await safe_send_json(
             websocket,
@@ -186,6 +413,10 @@ async def websocket_endpoint(
                 "data": transcript_data
             }
         )
+
+    # ========================================
+    # THREADSAFE CALLBACK BRIDGE
+    # ========================================
 
     def transcript_callback(
         transcript_data: dict
@@ -213,18 +444,19 @@ async def websocket_endpoint(
         transcript_callback
     )
 
+    # ========================================
+    # MAIN RECEIVE LOOP
+    # ========================================
+
     try:
-
-        await deepgram_service.setup_connection()
-
-        logger.info(
-            f"[Session {session_id}] "
-            f"Deepgram initialized"
-        )
 
         while True:
 
             data = await websocket.receive()
+
+            # -----------------------------------
+            # DISCONNECT EVENT
+            # -----------------------------------
 
             if (
                 data["type"]
@@ -238,6 +470,10 @@ async def websocket_endpoint(
 
                 break
 
+            # -----------------------------------
+            # TEXT EVENTS
+            # -----------------------------------
+
             if "text" in data:
 
                 text_data = data["text"]
@@ -248,8 +484,14 @@ async def websocket_endpoint(
                 await handle_text_message(
                     websocket,
                     text_data,
-                    session_id
+                    session_id,
+                    session_manager,
+                    deepgram_service
                 )
+
+            # -----------------------------------
+            # AUDIO EVENTS
+            # -----------------------------------
 
             elif "bytes" in data:
 
@@ -260,6 +502,8 @@ async def websocket_endpoint(
 
                 audio_chunk_count += 1
 
+                session_manager.increment_audio_chunks()
+
                 await handle_audio_chunk(
                     websocket,
                     audio_chunk,
@@ -267,6 +511,10 @@ async def websocket_endpoint(
                     audio_chunk_count,
                     deepgram_service
                 )
+
+    # ========================================
+    # DISCONNECT HANDLING
+    # ========================================
 
     except WebSocketDisconnect:
 
@@ -282,6 +530,10 @@ async def websocket_endpoint(
             f"WebSocket error: {e}"
         )
 
+    # ========================================
+    # CLEANUP
+    # ========================================
+
     finally:
 
         duration = round(
@@ -289,6 +541,26 @@ async def websocket_endpoint(
             - connection_start_time,
             2
         )
+
+        # ====================================
+        # SAFE WEBSOCKET CLOSE
+        # ====================================
+
+        if (
+            websocket.client_state
+            == WebSocketState.CONNECTED
+        ):
+
+            await websocket.close()
+
+            logger.info(
+                f"[Session {session_id}] "
+                f"WebSocket connection closed safely"
+            )
+
+        # ====================================
+        # CLOSE DEEPGRAM
+        # ====================================
 
         await deepgram_service.close()
 
@@ -301,13 +573,25 @@ async def websocket_endpoint(
         logger.info(
             f"[Session {session_id}] "
             f"Audio chunks: "
-            f"{audio_chunk_count}"
+            f"{session_manager.total_audio_chunks}"
         )
 
         logger.info(
             f"[Session {session_id}] "
             f"Final transcripts: "
-            f"{transcript_count}"
+            f"{session_manager.total_final_transcripts}"
+        )
+
+        logger.info(
+            f"[Session {session_id}] "
+            f"Current intent: "
+            f"{session_manager.current_intent}"
+        )
+
+        logger.info(
+            f"[Session {session_id}] "
+            f"Final state: "
+            f"{session_manager.current_state}"
         )
 
         logger.info(

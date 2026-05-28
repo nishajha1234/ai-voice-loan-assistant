@@ -10,66 +10,152 @@
         content="width=device-width, initial-scale=1.0"
     />
 
-    <title>AI Voice Assistant Test</title>
+    <title>
+        AI Voice Assistant Dashboard
+    </title>
 
     <style>
 
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f5f5;
-            padding: 30px;
+        * {
+            box-sizing: border-box;
         }
 
-        h2 {
+        body {
+
+            margin: 0;
+            padding: 24px;
+
+            font-family: Arial, sans-serif;
+
+            background: #f4f7fb;
+        }
+
+        h1 {
+            margin-bottom: 24px;
+        }
+
+        .top-controls {
+
+            display: flex;
+            gap: 12px;
             margin-bottom: 20px;
         }
 
         button {
-            padding: 12px 20px;
+
+            padding: 12px 18px;
+
             border: none;
-            border-radius: 6px;
+
+            border-radius: 8px;
+
             cursor: pointer;
-            margin-right: 10px;
+
             font-size: 14px;
+
+            font-weight: bold;
+        }
+
+        button:disabled {
+
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         #start {
-            background: green;
+
+            background: #0a8f3d;
             color: white;
         }
 
         #stop {
-            background: red;
+
+            background: #d32f2f;
             color: white;
         }
 
-        #status {
-            margin-top: 20px;
+        .dashboard-grid {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(auto-fit, minmax(240px, 1fr));
+
+            gap: 18px;
+
+            margin-bottom: 20px;
+        }
+
+        .card {
+
             background: white;
-            padding: 12px;
-            border-radius: 8px;
+
+            border-radius: 12px;
+
+            padding: 18px;
+
+            box-shadow:
+                0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .card-title {
+
+            font-size: 13px;
+
+            color: #666;
+
+            margin-bottom: 10px;
+
+            text-transform: uppercase;
+
+            letter-spacing: 0.5px;
+        }
+
+        .card-value {
+
+            font-size: 20px;
+
             font-weight: bold;
+
+            color: #111;
+
+            word-break: break-word;
         }
 
         #transcript {
-            margin-top: 20px;
+
             background: white;
+
             padding: 20px;
-            border-radius: 8px;
-            min-height: 180px;
-            line-height: 1.7;
-            white-space: pre-wrap;
+
+            border-radius: 12px;
+
+            min-height: 220px;
+
+            line-height: 1.8;
+
+            box-shadow:
+                0 2px 10px rgba(0, 0, 0, 0.08);
+
+            margin-bottom: 20px;
         }
 
         #logs {
-            margin-top: 20px;
-            background: black;
-            color: #00ff00;
-            padding: 15px;
-            border-radius: 8px;
+
+            background: #111;
+
+            color: #00ff88;
+
+            padding: 16px;
+
+            border-radius: 12px;
+
             height: 260px;
+
             overflow-y: auto;
+
             font-family: monospace;
+
             font-size: 13px;
         }
 
@@ -81,15 +167,56 @@
             color: #777;
         }
 
+        .connected {
+            color: green;
+        }
+
+        .disconnected {
+            color: red;
+        }
+
+        select {
+
+    padding: 12px 16px;
+
+    border-radius: 8px;
+
+    border: 1px solid #ccc;
+
+    font-size: 14px;
+
+    background: white;
+
+    font-weight: bold;
+}
+
     </style>
 
 </head>
 
 <body>
 
-    <h2>
-        Realtime AI Voice Assistant
-    </h2>
+    <h1>
+        AI Voice Loan Assistant
+    </h1>
+
+    <div class="top-controls">
+
+    <select id="languageSelect">
+
+        <option value="en">
+            English
+        </option>
+
+        <option value="hi">
+            Hindi
+        </option>
+
+        <option value="multi" selected>
+            Multi
+        </option>
+
+    </select>
 
     <button id="start">
         Start Recording
@@ -102,8 +229,115 @@
         Stop Recording
     </button>
 
-    <div id="status">
-        Status: Idle
+</div>
+
+    <div class="dashboard-grid">
+
+        <div class="card">
+
+            <div class="card-title">
+                Connection Status
+            </div>
+
+            <div
+                class="card-value disconnected"
+                id="connectionStatus"
+            >
+                Disconnected
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="card-title">
+                Session ID
+            </div>
+
+            <div
+                class="card-value"
+                id="sessionId"
+            >
+                -
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="card-title">
+                Current Intent
+            </div>
+
+            <div
+                class="card-value"
+                id="intentValue"
+            >
+                UNKNOWN
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="card-title">
+                Conversation State
+            </div>
+
+            <div
+                class="card-value"
+                id="stateValue"
+            >
+                GREETING
+            </div>
+
+        </div>
+
+        <div class="card">
+
+    <div class="card-title">
+        Language Mode
+    </div>
+
+    <div
+        class="card-value"
+        id="languageMode"
+    >
+        English
+    </div>
+
+</div>
+
+        <div class="card">
+
+            <div class="card-title">
+                Final Transcript Count
+            </div>
+
+            <div
+                class="card-value"
+                id="transcriptCount"
+            >
+                0
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="card-title">
+                Transcript Delivery Delay
+            </div>
+
+            <div
+                class="card-value"
+                id="latencyValue"
+            >
+                0 ms
+            </div>
+
+        </div>
+
     </div>
 
     <div id="transcript">
@@ -120,14 +354,51 @@
         const stopButton =
             document.getElementById("stop");
 
+        const languageSelect =
+    document.getElementById(
+        "languageSelect"
+    );
+
         const transcriptDiv =
             document.getElementById("transcript");
 
         const logsDiv =
             document.getElementById("logs");
 
-        const statusDiv =
-            document.getElementById("status");
+        const connectionStatus =
+            document.getElementById(
+                "connectionStatus"
+            );
+
+        const sessionIdElement =
+            document.getElementById(
+                "sessionId"
+            );
+
+        const intentValue =
+            document.getElementById(
+                "intentValue"
+            );
+
+        const stateValue =
+            document.getElementById(
+                "stateValue"
+            );
+
+            const languageMode =
+    document.getElementById(
+        "languageMode"
+    );
+
+        const transcriptCount =
+            document.getElementById(
+                "transcriptCount"
+            );
+
+        const latencyValue =
+            document.getElementById(
+                "latencyValue"
+            );
 
         let ws = null;
 
@@ -139,17 +410,29 @@
 
         let globalStream = null;
 
-        let isRecording = false;
-
         let keepAliveInterval = null;
+
+        let reconnectAttempts = 0;
+
+        let isRecording = false;
 
         let finalTranscript = "";
 
+        let finalTranscriptCounter = 0;
 
-        function updateStatus(message) {
+        let totalLatency = 0;
 
-            statusDiv.innerHTML =
-                `Status: ${message}`;
+        let latencySamples = 0;
+
+
+        function sanitizeHTML(text) {
+
+            const div =
+                document.createElement("div");
+
+            div.textContent = text;
+
+            return div.innerHTML;
         }
 
 
@@ -157,15 +440,37 @@
 
             console.log(message);
 
-            const logLine =
+            const line =
                 document.createElement("div");
 
-            logLine.textContent = message;
+            line.textContent = message;
 
-            logsDiv.appendChild(logLine);
+            logsDiv.appendChild(line);
 
             logsDiv.scrollTop =
                 logsDiv.scrollHeight;
+
+            while (
+                logsDiv.children.length > 200
+            ) {
+                logsDiv.removeChild(
+                    logsDiv.firstChild
+                );
+            }
+        }
+
+
+        function updateConnectionStatus(
+            status,
+            connected = false
+        ) {
+
+            connectionStatus.textContent = status;
+
+            connectionStatus.className =
+                connected
+                    ? "card-value connected"
+                    : "card-value disconnected";
         }
 
 
@@ -175,11 +480,11 @@
 
             transcriptDiv.innerHTML = `
                 <div class="final-text">
-                    ${finalTranscript}
+                    ${sanitizeHTML(finalTranscript)}
                 </div>
 
                 <div class="interim-text">
-                    ${interimTranscript}
+                    ${sanitizeHTML(interimTranscript)}
                 </div>
             `;
         }
@@ -219,121 +524,9 @@
         }
 
 
-        async function connectWebSocket() {
-
-            return new Promise((resolve, reject) => {
-
-                const websocketProtocol =
-                    window.location.protocol === "https:"
-                        ? "wss"
-                        : "ws";
-
-                const websocketHost =
-                    "127.0.0.1";
-
-                const websocketPort =
-                    "8000";
-
-                const websocketUrl =
-                    `${websocketProtocol}://${websocketHost}:${websocketPort}/ws`;
-
-                log(
-                    `Connecting to ${websocketUrl}`
-                );
-
-                ws = new WebSocket(websocketUrl);
-
-                ws.binaryType = "arraybuffer";
-
-                ws.onopen = () => {
-
-                    log(
-                        "WebSocket connected"
-                    );
-
-                    updateStatus(
-                        "WebSocket Connected"
-                    );
-
-                    startKeepAlive();
-
-                    resolve();
-                };
-
-                ws.onmessage = (event) => {
-
-                    try {
-
-                        const parsed =
-                            JSON.parse(event.data);
-
-                        if (
-                            parsed.type === "transcript"
-                        ) {
-
-                            const transcript =
-                                parsed.data.transcript;
-
-                            const isFinal =
-                                parsed.data.is_final;
-
-                            if (!transcript) {
-                                return;
-                            }
-
-                            if (isFinal) {
-
-                                finalTranscript +=
-                                    transcript + " ";
-
-                                renderTranscript();
-
-                            } else {
-
-                                renderTranscript(
-                                    transcript
-                                );
-                            }
-                        }
-
-                    } catch (error) {
-
-                        log(
-                            `Message parse error: ${error}`
-                        );
-                    }
-                };
-
-                ws.onerror = (error) => {
-
-                    log(
-                        "WebSocket error"
-                    );
-
-                    updateStatus(
-                        "WebSocket Error"
-                    );
-
-                    reject(error);
-                };
-
-                ws.onclose = () => {
-
-                    log(
-                        "WebSocket closed"
-                    );
-
-                    updateStatus(
-                        "Disconnected"
-                    );
-
-                    stopKeepAlive();
-                };
-            });
-        }
-
-
         function startKeepAlive() {
+
+            stopKeepAlive();
 
             keepAliveInterval =
                 setInterval(() => {
@@ -361,7 +554,212 @@
                 clearInterval(
                     keepAliveInterval
                 );
+
+                keepAliveInterval = null;
             }
+        }
+
+
+        async function connectWebSocket() {
+
+            return new Promise((resolve, reject) => {
+
+                const websocketProtocol =
+    window.location.protocol === "https:"
+        ? "wss"
+        : "ws";
+
+const websocketHost =
+    window.location.hostname;
+
+const websocketPort =
+    "8000";
+
+const websocketUrl =
+    `${websocketProtocol}://${websocketHost}:${websocketPort}/ws`;
+
+                log(
+                    `Connecting to ${websocketUrl}`
+                );
+
+                ws = new WebSocket(
+                    websocketUrl
+                );
+
+                ws.binaryType = "arraybuffer";
+
+                ws.onopen = () => {
+
+    reconnectAttempts = 0;
+
+    log(
+        "WebSocket connected"
+    );
+
+    updateConnectionStatus(
+        "Connected",
+        true
+    );
+
+    const selectedLanguage =
+    languageSelect.value;
+
+const languageLabels = {
+    en: "English",
+    hi: "Hindi",
+    multi: "Multilingual"
+};
+
+languageMode.textContent =
+    languageLabels[selectedLanguage];
+
+log(
+    `Language selected: ${selectedLanguage}`
+);
+
+    ws.send(
+        JSON.stringify({
+            type: "language_config",
+            language: selectedLanguage
+        })
+    );
+
+    startKeepAlive();
+
+    resolve();
+};
+
+                ws.onmessage = (event) => {
+
+                    try {
+
+                        const parsed =
+                            JSON.parse(event.data);
+
+                        if (
+                            parsed.type
+                            === "session_started"
+                        ) {
+
+                            sessionIdElement.textContent =
+                                parsed.session_id;
+
+                            return;
+                        }
+
+                        if (
+                            parsed.type
+                            === "transcript"
+                        ) {
+
+                            const transcript =
+                                parsed.data.transcript;
+
+                            const isFinal =
+                                parsed.data.is_final;
+
+                            const intent =
+                                parsed.data.intent;
+
+                            const state =
+                                parsed.data.state;
+
+                            const transcriptReceivedAt =
+                                parsed.data.transcript_received_at;
+
+                            if (
+                                transcriptReceivedAt
+                            ) {
+
+                                const latency =
+                                    Math.round(
+                                        (
+                                            Date.now() / 1000
+                                            - transcriptReceivedAt
+                                        ) * 1000
+                                    );
+
+                                totalLatency += latency;
+
+                                latencySamples++;
+
+                                latencyValue.textContent =
+                                    `${Math.round(
+                                        totalLatency /
+                                        latencySamples
+                                    )} ms`;
+                            }
+
+                            if (intent) {
+
+                                intentValue.textContent =
+                                    intent;
+                            }
+
+                            if (state) {
+
+                                stateValue.textContent =
+                                    state;
+                            }
+
+                            if (!transcript) {
+                                return;
+                            }
+
+                            if (isFinal) {
+
+                                finalTranscript +=
+                                    transcript + " ";
+
+                                finalTranscriptCounter++;
+
+                                transcriptCount.textContent =
+                                    finalTranscriptCounter;
+
+                                renderTranscript();
+
+                            } else {
+
+                                renderTranscript(
+                                    transcript
+                                );
+                            }
+                        }
+
+                    } catch (error) {
+
+                        log(
+                            `Message parse error: ${error}`
+                        );
+                    }
+                };
+
+                ws.onerror = (error) => {
+
+                    log(
+                        "WebSocket error"
+                    );
+
+                    updateConnectionStatus(
+                        "Error"
+                    );
+
+                    reject(error);
+                };
+
+                ws.onclose = () => {
+
+                    log(
+                        "WebSocket closed"
+                    );
+
+                    updateConnectionStatus(
+                        "Disconnected"
+                    );
+
+                    stopKeepAlive();
+                };
+            });
         }
 
 
@@ -369,7 +767,21 @@
 
             try {
 
+                if (isRecording) {
+                    return;
+                }
+
                 finalTranscript = "";
+
+                finalTranscriptCounter = 0;
+
+                totalLatency = 0;
+
+                latencySamples = 0;
+
+                transcriptCount.textContent = "0";
+
+                latencyValue.textContent = "0 ms";
 
                 renderTranscript();
 
@@ -390,6 +802,8 @@
                         sampleRate: 16000
                     });
 
+                await audioContext.resume();
+
                 input =
                     audioContext.createMediaStreamSource(
                         globalStream
@@ -406,7 +820,11 @@
                     event
                 ) => {
 
-                    if (!isRecording) {
+                    if (
+                        !isRecording ||
+                        !ws ||
+                        ws.readyState !== WebSocket.OPEN
+                    ) {
                         return;
                     }
 
@@ -416,13 +834,7 @@
                     const pcmData =
                         floatTo16BitPCM(inputData);
 
-                    if (
-                        ws &&
-                        ws.readyState === WebSocket.OPEN
-                    ) {
-
-                        ws.send(pcmData);
-                    }
+                    ws.send(pcmData);
                 };
 
                 input.connect(processor);
@@ -432,10 +844,6 @@
                 );
 
                 isRecording = true;
-
-                updateStatus(
-                    "Recording..."
-                );
 
                 log(
                     "Recording started"
@@ -453,7 +861,7 @@
                     `Recording error: ${error}`
                 );
 
-                updateStatus(
+                updateConnectionStatus(
                     "Recording Failed"
                 );
             }
@@ -465,6 +873,8 @@
             try {
 
                 isRecording = false;
+
+                stopKeepAlive();
 
                 if (processor) {
 
@@ -491,7 +901,9 @@
 
                     globalStream
                         .getTracks()
-                        .forEach(track => track.stop());
+                        .forEach(
+                            track => track.stop()
+                        );
 
                     globalStream = null;
                 }
@@ -502,12 +914,6 @@
 
                     ws = null;
                 }
-
-                stopKeepAlive();
-
-                updateStatus(
-                    "Recording Stopped"
-                );
 
                 log(
                     "Recording stopped"
@@ -525,6 +931,11 @@
             stopButton.disabled = true;
         }
 
+
+        window.addEventListener(
+            "beforeunload",
+            stopRecording
+        );
 
         startButton.onclick =
             startRecording;

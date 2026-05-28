@@ -41,6 +41,8 @@ class DeepgramService:
         self.total_transcripts = 0
 
         self.total_final_transcripts = 0
+        
+        self.language = "multi"
 
     def set_transcript_callback(
         self,
@@ -49,7 +51,10 @@ class DeepgramService:
 
         self.transcript_callback = callback
 
-    async def setup_connection(self):
+    async def setup_connection(
+    self,
+    language="multi"
+):
 
         if self.connection:
             logger.warning(
@@ -60,7 +65,7 @@ class DeepgramService:
         try:
 
             self.connection = (
-                self.client.listen.live.v("1")
+                self.client.listen.websocket.v("1")
             )
 
             self.connection.on(
@@ -82,6 +87,8 @@ class DeepgramService:
                 LiveTranscriptionEvents.Close,
                 self.on_close
             )
+            
+            self.language = language
 
             options = LiveOptions(
 
@@ -89,7 +96,7 @@ class DeepgramService:
                 model="nova-2",
 
                 # Hindi + English auto-detection
-                language="multi",
+                language=self.language,
 
                 # Browser PCM format
                 encoding="linear16",
@@ -269,9 +276,9 @@ class DeepgramService:
                     result.speech_final
                 ),
 
-                "received_at": (
-                    time.perf_counter()
-                )
+                "transcript_received_at": (
+    time.time()
+)
             }
 
             logger.info(
