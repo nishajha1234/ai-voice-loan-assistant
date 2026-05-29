@@ -55,13 +55,17 @@ from app.core.constants import (
     IntentType
 )
 
+from app.services.recording_service import (
+    RecordingService
+)
+
 import uuid
 import time
 import asyncio
 import json
 import base64
 import os
-
+import shutil
 
 # ============================================
 # SAFE JSON SENDER
@@ -307,6 +311,7 @@ async def websocket_endpoint(
 ):
 
     await websocket.accept()
+    RecordingService.initialize()
 
     # ========================================
     # SESSION SETUP
@@ -400,16 +405,6 @@ async def websocket_endpoint(
             current_intent = (
                 session_manager.current_intent
             )
-            
-            if current_intent in [
-                IntentType.INTERESTED,
-                IntentType.HIGH_TICKET
-            ]:
-
-                NotificationService.send_hot_lead_alert(
-                    transcript,
-                    str(current_intent)
-    )
 
             current_state = (
                 session_manager.current_state
@@ -420,6 +415,7 @@ async def websocket_endpoint(
             sentiment = "NEUTRAL"
             
             audio_bytes = None
+            audio_file = None
 
             # ====================================
             # FINAL TRANSCRIPT FLOW
@@ -446,6 +442,15 @@ async def websocket_endpoint(
                         transcript
                     )
                 )
+                
+                if current_intent in [
+                    IntentType.INTERESTED,
+                    IntentType.HIGH_TICKET
+                ]:
+                    NotificationService.send_hot_lead_alert(
+                        transcript,
+                        str(current_intent)
+                    )
 
                 session_manager.update_intent(
                     current_intent
@@ -471,24 +476,19 @@ async def websocket_endpoint(
         transcript=transcript
     )
 )
-                
-                if current_intent in [
-                    IntentType.INTERESTED,
-                    IntentType.HIGH_TICKET
-                ]:
+                session_manager.conversation_history.append(
+                    {
+                        "speaker": "user",
+                        "text": transcript
+                    }
+                )
 
-                    SlackService.send_alert(
-                        f"""
-                🔥 Hot Lead Detected
-
-                Session: {session_id}
-
-                Intent: {current_intent}
-
-                Transcript:
-                {transcript}
-                """
-                    )
+                session_manager.conversation_history.append(
+                    {
+                        "speaker": "ai",
+                        "text": ai_response
+                    }
+                )
                 
                 audio_file = (
     TTSService.generate_audio(
@@ -496,6 +496,16 @@ async def websocket_endpoint(
         language=session_manager.language
     )
 )
+                
+                target = (
+                    RecordingService.RECORDINGS_DIR
+                    / f"{session_id}_ai_{transcript_count}.wav"
+                )
+
+                shutil.copy(
+                    audio_file,
+                    target
+                )                
                 with open(
                 audio_file,
                 "rb"
@@ -507,11 +517,13 @@ async def websocket_endpoint(
                         ).decode()
                     )
                     
-            try:
-                os.remove(audio_file)
+                if audio_file:
 
-            except Exception:
-                pass                    
+                    try:
+                        os.remove(audio_file)
+
+                    except Exception:
+                        pass
 
                 logger.info(
                     f"[Session {session_id}] "
@@ -530,10 +542,6 @@ async def websocket_endpoint(
                     f"AI response: "
                     f"{ai_response}"
                 )
-
-                # ====================================
-                # SAVE TO CRM
-                # ====================================
 
                 try:
 
@@ -690,6 +698,11 @@ async def websocket_endpoint(
                 audio_chunk_count += 1
 
                 session_manager.increment_audio_chunks()
+                
+                RecordingService.save_chunk(
+    session_id,
+    audio_chunk
+)
 
                 await handle_audio_chunk(
                     websocket,
@@ -773,6 +786,21 @@ async def websocket_endpoint(
             )
 
         # ====================================
+        # FINALIZE RECORDING
+        # ====================================
+
+        try:
+            RecordingService.finalize(
+                session_id
+            )
+
+        except Exception as e:
+
+            logger.error(
+                f"Recording finalize error: {e}"
+            )
+
+        # ====================================
         # CLOSE DEEPGRAM
         # ====================================
 
@@ -783,36 +811,36 @@ async def websocket_endpoint(
         # ====================================
 
         logger.info(
-            f"[Session {session_id}] "
-            f"Session duration: "
-            f"{duration}s"
-        )
+                f"[Session {session_id}] "
+                f"Session duration: "
+                f"{duration}s"
+            )
 
         logger.info(
-            f"[Session {session_id}] "
-            f"Audio chunks: "
-            f"{session_manager.total_audio_chunks}"
-        )
+                f"[Session {session_id}] "
+                f"Audio chunks: "
+                f"{session_manager.total_audio_chunks}"
+            )
 
         logger.info(
-            f"[Session {session_id}] "
-            f"Final transcripts: "
-            f"{session_manager.total_final_transcripts}"
-        )
+                f"[Session {session_id}] "
+                f"Final transcripts: "
+                f"{session_manager.total_final_transcripts}"
+            )
 
         logger.info(
-            f"[Session {session_id}] "
-            f"Current intent: "
-            f"{session_manager.current_intent}"
-        )
+                f"[Session {session_id}] "
+                f"Current intent: "
+                f"{session_manager.current_intent}"
+            )
 
         logger.info(
-            f"[Session {session_id}] "
-            f"Final state: "
-            f"{session_manager.current_state}"
-        )
+                f"[Session {session_id}] "
+                f"Final state: "
+                f"{session_manager.current_state}"
+            )
 
         logger.info(
-            f"[Session {session_id}] "
-            f"Connection closed"
-        )
+                f"[Session {session_id}] "
+                f"Connection closed"
+            )

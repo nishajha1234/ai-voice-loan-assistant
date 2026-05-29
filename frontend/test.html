@@ -631,23 +631,11 @@
     "
 >
     <thead>
-
         <tr>
-
-            <th>
-                Transcript
-            </th>
-
-            <th>
-                Intent
-            </th>
-
-            <th>
-                Time
-            </th>
-
+            <th>Transcript</th>
+            <th>Intent</th>
+            <th>Time</th>
         </tr>
-
     </thead>
 
     <tbody id="hotLeadsBody">
@@ -656,7 +644,25 @@
 
 </table>
 
-    <div id="logs"></div>
+<!-- NEW SECTION -->
+
+<h2>
+    Customer Recordings
+</h2>
+
+<div id="customerRecordings">
+
+</div>
+
+<h2>
+    AI Responses
+</h2>
+
+<div id="aiRecordings">
+
+</div>
+
+<div id="logs"></div>
 
 <script>
 
@@ -790,6 +796,16 @@ const falsePositiveRate =
 const hotLeadsBody =
     document.getElementById(
         "hotLeadsBody"
+    );
+
+const customerRecordings =
+    document.getElementById(
+        "customerRecordings"
+    );
+
+const aiRecordings =
+    document.getElementById(
+        "aiRecordings"
     );
 
 let ws = null;
@@ -1053,6 +1069,101 @@ async function loadHotLeads() {
     } catch (error) {
 
         console.error(error);
+    }
+}
+
+async function loadRecordings() {
+
+    try {
+
+        const response =
+            await fetch(
+                "http://127.0.0.1:8000/dashboard/recordings"
+            );
+
+        const data =
+            await response.json();
+
+        customerRecordings.innerHTML = "";
+
+        aiRecordings.innerHTML = "";
+
+        // ======================
+        // CUSTOMER RECORDINGS
+        // ======================
+
+        data.customer.forEach(recording => {
+
+            const wrapper =
+                document.createElement("div");
+
+            wrapper.style.marginBottom =
+                "15px";
+
+            wrapper.innerHTML = `
+
+                <p>
+                    ${recording.name}
+                </p>
+
+                <audio controls>
+
+                    <source
+                        src="http://127.0.0.1:8000${recording.url}"
+                        type="audio/wav"
+                    >
+
+                </audio>
+
+            `;
+
+            customerRecordings.appendChild(
+                wrapper
+            );
+        });
+
+        // ======================
+        // AI RECORDINGS
+        // ======================
+
+        data.ai.forEach(recording => {
+
+            const wrapper =
+                document.createElement("div");
+
+            wrapper.style.marginBottom =
+                "15px";
+
+            wrapper.innerHTML = `
+
+                <p>
+                    ${recording.name}
+                </p>
+
+                <audio controls>
+
+                    <source
+                        src="http://127.0.0.1:8000${recording.url}"
+                        type="audio/wav"
+                    >
+
+                </audio>
+
+            `;
+
+            aiRecordings.appendChild(
+                wrapper
+            );
+        });
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Recording load error",
+            error
+        );
     }
 }
 
@@ -1703,6 +1814,8 @@ loadRecentCalls();
 
 loadHotLeads();
 
+loadRecordings();
+
 setInterval(() => {
 
     loadDashboardMetrics();
@@ -1712,6 +1825,8 @@ setInterval(() => {
     loadRecentCalls();
 
     loadHotLeads();
+
+    loadRecordings();
 
 }, 5000);
 

@@ -16,10 +16,22 @@ from app.api.dashboard import (
     router as dashboard_router
 )
 
+from fastapi.staticfiles import StaticFiles
+
+from app.api.dashboard_recordings import (
+    router as recordings_router
+)
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME
+)
+
+app.mount(
+    "/recordings",
+    StaticFiles(directory="recordings"),
+    name="recordings"
 )
 
 
@@ -38,6 +50,9 @@ app.include_router(health_router)
 app.include_router(voice_router)
 app.include_router(
     dashboard_router
+)
+app.include_router(
+    recordings_router
 )
 
 @app.get("/test")

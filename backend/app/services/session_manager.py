@@ -38,6 +38,8 @@ class SessionManager:
 
         # Session lifecycle tracking
         self.is_active = True
+        
+        self.conversation_history = []
 
     def add_transcript(
         self,

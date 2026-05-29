@@ -8,6 +8,7 @@ from app.db.models import (
     TranscriptLog
 )
 
+
 router = APIRouter(
     prefix="/dashboard",
     tags=["Dashboard"]
