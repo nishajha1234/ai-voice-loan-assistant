@@ -820,8 +820,6 @@ let latencySamples = 0;
 
 let audioChunkCounter = 0;
 
-let speechQueue = [];
-let isSpeaking = false;
 let aiSpeaking = false;
 let lastAiResponse = "";
 
@@ -1124,87 +1122,32 @@ function renderTranscript(
     `;
 }
 
-function speakText(
-    text,
-    language = "en"
-) {
+function playAudio(base64Audio) {
 
-    if (!text) {
+    if (!base64Audio) {
         return;
     }
 
-    speechQueue.push({
-        text,
-        language
+    aiSpeaking = true;
+
+    const audio =
+        new Audio(
+            "data:audio/mp3;base64," +
+            base64Audio
+        );
+
+    audio.onended = () => {
+
+        aiSpeaking = false;
+    };
+
+    audio.play()
+    .catch(error => {
+        console.error(
+            "Audio play failed",
+            error
+        );
     });
-
-    processSpeechQueue();
-}
-
-function processSpeechQueue() {
-
-    if (
-        isSpeaking ||
-        speechQueue.length === 0
-    ) {
-        return;
-    }
-
-    isSpeaking = true;
-
-    const item =
-        speechQueue.shift();
-
-    const utterance =
-        new SpeechSynthesisUtterance(
-            item.text
-        );
-
-    if (
-        item.language === "hi"
-    ) {
-
-        utterance.lang = "hi-IN";
-
-    } else {
-
-        utterance.lang = "en-US";
-    }
-
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    utterance.onstart = () => {
-
-        aiSpeaking = true;
-
-        log(
-            `AI Speaking: ${item.text}`
-        );
-    };
-
-    utterance.onend = () => {
-
-        aiSpeaking = false;
-
-        isSpeaking = false;
-
-        processSpeechQueue();
-    };
-
-    utterance.onerror = () => {
-
-        aiSpeaking = false;
-
-        isSpeaking = false;
-
-        processSpeechQueue();
-    };
-
-    speechSynthesis.speak(
-        utterance
-    );
 }
 
 function floatTo16BitPCM(input) {
@@ -1412,6 +1355,9 @@ async function connectWebSocket() {
                     const aiResponse =
                         parsed.data.ai_response;
 
+                    const audio =
+    parsed.audio;    
+
                     const transcriptReceivedAt =
                         parsed.data.transcript_received_at;
 
@@ -1436,12 +1382,9 @@ async function connectWebSocket() {
 
                     aiResponseElement.textContent =
                         aiResponse;
-
-                    speakText(
-                        aiResponse,
-                        languageSelect.value
-                    );
                 }
+
+                playAudio(audio);
 
                     if (
                         transcriptReceivedAt
@@ -1720,12 +1663,6 @@ async function stopRecording() {
 
             mediaStream = null;
         }
-
-        speechSynthesis.cancel();
-
-speechQueue = [];
-
-isSpeaking = false;
 
         if (ws) {
 

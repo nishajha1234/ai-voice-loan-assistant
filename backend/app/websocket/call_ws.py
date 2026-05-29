@@ -40,11 +40,16 @@ from app.utils.logger import logger
 from app.services.sentiment_service import (
     SentimentService
 )
+from app.services.tts_service import (
+    TTSService
+)
 
 import uuid
 import time
 import asyncio
 import json
+import base64
+import os
 
 
 # ============================================
@@ -392,6 +397,8 @@ async def websocket_endpoint(
             ai_response = ""
             
             sentiment = "NEUTRAL"
+            
+            audio_bytes = None
 
             # ====================================
             # FINAL TRANSCRIPT FLOW
@@ -436,12 +443,36 @@ async def websocket_endpoint(
                 )
 
                 ai_response = (
-                    ResponseService.generate_response(
-                        current_intent,
-                        current_state,
-                        transcript
+    ResponseService.generate_response(
+        intent=current_intent,
+        state=current_state,
+        language=session_manager.language,
+        transcript=transcript
+    )
+)
+                
+                audio_file = (
+    TTSService.generate_audio(
+        text=ai_response,
+        language=session_manager.language
+    )
+)
+                with open(
+                audio_file,
+                "rb"
+            ) as file:
+
+                    audio_bytes = (
+                        base64.b64encode(
+                            file.read()
+                        ).decode()
                     )
-                )
+                    
+            try:
+                os.remove(audio_file)
+
+            except Exception:
+                pass                    
 
                 logger.info(
                     f"[Session {session_id}] "
@@ -514,7 +545,8 @@ async def websocket_endpoint(
                 {
                     "type": "transcript",
                     "transcript_type": transcript_type,
-                    "data": transcript_data
+                    "data": transcript_data,
+                    "audio": audio_bytes,
                 }
             )
 
