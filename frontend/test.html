@@ -473,6 +473,45 @@
 
 </table>
 
+<h2>
+    Recent Calls
+</h2>
+
+<table
+    id="callsTable"
+    border="1"
+    width="100%"
+    cellpadding="10"
+    style="
+        background:white;
+        margin-bottom:20px;
+        border-collapse:collapse;
+    "
+>
+    <thead>
+
+        <tr>
+
+            <th>Session ID</th>
+
+            <th>Intent</th>
+
+            <th>State</th>
+
+            <th>Duration</th>
+
+            <th>Language</th>
+
+        </tr>
+
+    </thead>
+
+    <tbody id="callsBody">
+
+    </tbody>
+
+</table>
+
     <div id="logs"></div>
 
 <script>
@@ -537,6 +576,11 @@ const aiResponseElement =
 const transcriptBody =
     document.getElementById(
         "transcriptBody"
+    ); 
+    
+const callsBody =
+    document.getElementById(
+        "callsBody"
     );    
 
 const totalCalls =
@@ -670,6 +714,60 @@ async function loadTranscripts() {
             `;
 
             transcriptBody.appendChild(
+                row
+            );
+        });
+
+    } catch (error) {
+
+        console.error(error);
+    }
+}
+
+async function loadRecentCalls() {
+
+    try {
+
+        const response =
+            await fetch(
+                "http://127.0.0.1:8000/dashboard/recent-calls"
+            );
+
+        const data =
+            await response.json();
+
+        callsBody.innerHTML = "";
+
+        data.forEach(call => {
+
+            const row =
+                document.createElement("tr");
+
+            row.innerHTML = `
+
+                <td>
+                    ${call.session_id}
+                </td>
+
+                <td>
+                    ${call.intent}
+                </td>
+
+                <td>
+                    ${call.state}
+                </td>
+
+                <td>
+                    ${call.duration}s
+                </td>
+
+                <td>
+                    ${call.language}
+                </td>
+
+            `;
+
+            callsBody.appendChild(
                 row
             );
         });
@@ -1381,13 +1479,18 @@ window.addEventListener(
 );
 
 loadDashboardMetrics();
+
 loadTranscripts();
+
+loadRecentCalls();
 
 setInterval(() => {
 
     loadDashboardMetrics();
 
     loadTranscripts();
+
+    loadRecentCalls();
 
 }, 5000);
 
