@@ -36,6 +36,9 @@ class SessionManager:
 
         self.total_final_transcripts = 0
 
+        # Session lifecycle tracking
+        self.is_active = True
+
     def add_transcript(
         self,
         transcript: str

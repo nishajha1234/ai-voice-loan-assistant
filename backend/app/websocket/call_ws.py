@@ -5,6 +5,14 @@ from starlette.websockets import (
     WebSocketState
 )
 
+from app.services.crm_service import (
+    CRMService
+)
+
+from app.services.response_service import (
+    ResponseService
+)
+
 from app.services.deepgram_service import (
     DeepgramService
 )
@@ -29,10 +37,10 @@ from app.core.constants import (
 
 from app.utils.logger import logger
 
-import json
 import uuid
 import time
 import asyncio
+import json
 
 
 # ============================================
@@ -52,8 +60,12 @@ async def safe_send_json(
         ):
             return
 
-        await websocket.send_text(
-            json.dumps(payload)
+        await websocket.send_json(payload)
+
+    except RuntimeError:
+
+        logger.warning(
+            "WebSocket already closed"
         )
 
     except Exception as e:
@@ -100,9 +112,9 @@ async def handle_text_message(
 
         parsed = json.loads(text_data)
 
-        # -----------------------------------
+        # ====================================
         # KEEPALIVE PING
-        # -----------------------------------
+        # ====================================
 
         if parsed.get("type") == "ping":
 
@@ -110,9 +122,9 @@ async def handle_text_message(
 
             return
 
-        # -----------------------------------
-        # LANGUAGE CONFIGURATION
-        # -----------------------------------
+        # ====================================
+        # LANGUAGE CONFIG
+        # ====================================
 
         if parsed.get("type") == "language_config":
 
@@ -130,21 +142,46 @@ async def handle_text_message(
                 f"{selected_language}"
             )
 
-            # -----------------------------------
+            # ====================================
             # INITIALIZE DEEPGRAM
-            # -----------------------------------
+            # ====================================
 
-            if not deepgram_service.connection:
-
-                await deepgram_service.setup_connection(
-                    language=selected_language
-                )
+            if not deepgram_service.connection_ready:
 
                 logger.info(
                     f"[Session {session_id}] "
-                    f"Deepgram initialized "
-                    f"with language: "
-                    f"{selected_language}"
+                    f"Initializing Deepgram..."
+                )
+
+                connection_success = (
+                    await deepgram_service.setup_connection(
+                        language=selected_language
+                    )
+                )
+
+                if not connection_success:
+
+                    logger.error(
+                        f"[Session {session_id}] "
+                        f"Deepgram initialization failed"
+                    )
+
+                    await safe_send_json(
+                        websocket,
+                        {
+                            "type": "error",
+                            "message": (
+                                "Failed to connect "
+                                "to Deepgram"
+                            )
+                        }
+                    )
+
+                    return
+
+                logger.info(
+                    f"[Session {session_id}] "
+                    f"Deepgram initialized"
                 )
 
             await safe_send_json(
@@ -191,9 +228,9 @@ async def handle_audio_chunk(
     if chunk_size < MIN_AUDIO_CHUNK_SIZE:
         return
 
-    # -----------------------------------
+    # ========================================
     # REDUCE EXCESSIVE LOGGING
-    # -----------------------------------
+    # ========================================
 
     if chunk_number % AUDIO_LOG_INTERVAL == 0:
 
@@ -203,13 +240,16 @@ async def handle_audio_chunk(
             f"({chunk_size} bytes)"
         )
 
-    # -----------------------------------
-    # STREAM AUDIO TO DEEPGRAM
-    # -----------------------------------
+    # ========================================
+    # STREAM AUDIO
+    # ========================================
 
     try:
 
-        if deepgram_service.connection:
+        if (
+            deepgram_service.connection_ready
+            and deepgram_service.connection
+        ):
 
             deepgram_service.stream_audio(
                 audio_chunk
@@ -222,9 +262,9 @@ async def handle_audio_chunk(
             f"Audio streaming error: {e}"
         )
 
-    # -----------------------------------
+    # ========================================
     # OPTIONAL DEBUG ACKS
-    # -----------------------------------
+    # ========================================
 
     if DEBUG_AUDIO_ACKS:
 
@@ -269,7 +309,7 @@ async def websocket_endpoint(
     )
 
     # ========================================
-    # SEND SESSION START EVENT
+    # SESSION START EVENT
     # ========================================
 
     await safe_send_json(
@@ -299,120 +339,172 @@ async def websocket_endpoint(
 
         nonlocal transcript_count
 
-        is_final = (
-            transcript_data.get("is_final")
-        )
+        if not session_manager.is_active:
 
-        transcript_data[
-            "transcript_processed_at"
-        ] = time.perf_counter()
+            logger.warning(
+                f"[Session {session_id}] "
+                f"Ignoring transcript after session closed"
+            )
 
-        # ====================================
-        # FINAL TRANSCRIPT LOGIC
-        # ====================================
+            return
 
-        if is_final:
-
-            transcript_count += 1
-
-            session_manager.increment_final_transcripts()
+        try:
 
             transcript = (
-                transcript_data["transcript"]
+                transcript_data.get(
+                    "transcript",
+                    ""
+                ).strip()
             )
 
-            # --------------------------------
-            # STORE HISTORY
-            # --------------------------------
+            if not transcript:
+                return
 
-            session_manager.add_transcript(
-                transcript
-            )
-
-            # --------------------------------
-            # INTENT DETECTION
-            # --------------------------------
-
-            intent = (
-                IntentService.detect_intent(
-                    transcript
+            is_final = (
+                transcript_data.get(
+                    "is_final",
+                    False
                 )
             )
 
-            session_manager.update_intent(
-                intent
+            transcript_type = (
+                "final"
+                if is_final
+                else "interim"
             )
 
-            # --------------------------------
-            # STATE TRANSITIONS
-            # --------------------------------
+            transcript_data[
+                "transcript_processed_at"
+            ] = time.perf_counter()
 
-            next_state = (
-                StateService.determine_next_state(
-                    session_manager.current_state,
-                    intent,
-                    transcript
-                )
-            )
-
-            session_manager.update_state(
-                next_state
-            )
-
-            transcript_data["intent"] = (
-                intent
-            )
-
-            transcript_data["state"] = (
-                next_state
-            )
-
-            logger.info(
-                f"[Session {session_id}] "
-                f"Intent detected: "
-                f"{intent}"
-            )
-
-            logger.info(
-                f"[Session {session_id}] "
-                f"Next state: "
-                f"{next_state}"
-            )
-
-        # ====================================
-        # DEFAULT FALLBACKS
-        # ====================================
-
-        if "intent" not in transcript_data:
-
-            transcript_data["intent"] = (
+            current_intent = (
                 session_manager.current_intent
             )
 
-        if "state" not in transcript_data:
-
-            transcript_data["state"] = (
+            current_state = (
                 session_manager.current_state
             )
 
-        transcript_type = (
-            "final"
-            if is_final
-            else "interim"
-        )
+            ai_response = ""
 
-        # ====================================
-        # SEND TO FRONTEND
-        # ====================================
+            # ====================================
+            # FINAL TRANSCRIPT FLOW
+            # ====================================
 
-        await safe_send_json(
-            websocket,
-            {
-                "type": "transcript",
-                "transcript_type": transcript_type,
-                "data": transcript_data
-            }
-        )
+            if is_final:
+
+                transcript_count += 1
+
+                session_manager.increment_final_transcripts()
+
+                session_manager.add_transcript(
+                    transcript
+                )
+
+                current_intent = (
+                    IntentService.detect_intent(
+                        transcript
+                    )
+                )
+
+                session_manager.update_intent(
+                    current_intent
+                )
+
+                current_state = (
+                    StateService.determine_next_state(
+                        session_manager.current_state,
+                        current_intent,
+                        transcript
+                    )
+                )
+
+                session_manager.update_state(
+                    current_state
+                )
+
+                ai_response = (
+                    ResponseService.generate_response(
+                        current_intent,
+                        current_state,
+                        transcript
+                    )
+                )
+
+                logger.info(
+                    f"[Session {session_id}] "
+                    f"Intent detected: "
+                    f"{current_intent}"
+                )
+
+                logger.info(
+                    f"[Session {session_id}] "
+                    f"Next state: "
+                    f"{current_state}"
+                )
+
+                logger.info(
+                    f"[Session {session_id}] "
+                    f"AI response: "
+                    f"{ai_response}"
+                )
+
+                # ====================================
+                # SAVE TO CRM
+                # ====================================
+
+                try:
+
+                    await asyncio.to_thread(
+                        CRMService.save_transcript,
+                        session_id=session_id,
+                        transcript=transcript,
+                        transcript_type=transcript_type,
+                        intent=str(current_intent),
+                        state=str(current_state),
+                        ai_response=ai_response
+                    )
+
+                except Exception as db_error:
+
+                    logger.error(
+                        f"CRM save error: {db_error}"
+                    )
+
+            # ====================================
+            # RESPONSE PAYLOAD
+            # ====================================
+
+            transcript_data["intent"] = (
+                current_intent
+            )
+
+            transcript_data["state"] = (
+                current_state
+            )
+
+            transcript_data["ai_response"] = (
+                ai_response
+            )
+
+            # ====================================
+            # SEND TO FRONTEND
+            # ====================================
+
+            await safe_send_json(
+                websocket,
+                {
+                    "type": "transcript",
+                    "transcript_type": transcript_type,
+                    "data": transcript_data
+                }
+            )
+
+        except Exception as e:
+
+            logger.error(
+                f"handle_transcript error: {e}"
+            )
 
     # ========================================
     # THREADSAFE CALLBACK BRIDGE
@@ -422,23 +514,33 @@ async def websocket_endpoint(
         transcript_data: dict
     ):
 
-        future = asyncio.run_coroutine_threadsafe(
-            handle_transcript(transcript_data),
-            loop
-        )
+        try:
 
-        def callback_done(f):
+            future = asyncio.run_coroutine_threadsafe(
+                handle_transcript(transcript_data),
+                loop
+            )
 
-            exception = f.exception()
+            def callback_done(f):
 
-            if exception:
+                exception = f.exception()
 
-                logger.error(
-                    f"Transcript callback error: "
-                    f"{exception}"
-                )
+                if exception:
 
-        future.add_done_callback(callback_done)
+                    logger.error(
+                        f"Transcript callback error: "
+                        f"{exception}"
+                    )
+
+            future.add_done_callback(
+                callback_done
+            )
+
+        except Exception as e:
+
+            logger.error(
+                f"run_coroutine_threadsafe failed: {e}"
+            )
 
     deepgram_service.set_transcript_callback(
         transcript_callback
@@ -452,14 +554,14 @@ async def websocket_endpoint(
 
         while True:
 
-            data = await websocket.receive()
+            message = await websocket.receive()
 
-            # -----------------------------------
-            # DISCONNECT EVENT
-            # -----------------------------------
+            # ====================================
+            # DISCONNECT
+            # ====================================
 
             if (
-                data["type"]
+                message["type"]
                 == "websocket.disconnect"
             ):
 
@@ -470,16 +572,13 @@ async def websocket_endpoint(
 
                 break
 
-            # -----------------------------------
+            # ====================================
             # TEXT EVENTS
-            # -----------------------------------
+            # ====================================
 
-            if "text" in data:
+            text_data = message.get("text")
 
-                text_data = data["text"]
-
-                if text_data is None:
-                    continue
+            if text_data is not None:
 
                 await handle_text_message(
                     websocket,
@@ -489,16 +588,15 @@ async def websocket_endpoint(
                     deepgram_service
                 )
 
-            # -----------------------------------
+                continue
+
+            # ====================================
             # AUDIO EVENTS
-            # -----------------------------------
+            # ====================================
 
-            elif "bytes" in data:
+            audio_chunk = message.get("bytes")
 
-                audio_chunk = data["bytes"]
-
-                if audio_chunk is None:
-                    continue
+            if audio_chunk is not None:
 
                 audio_chunk_count += 1
 
@@ -512,10 +610,6 @@ async def websocket_endpoint(
                     deepgram_service
                 )
 
-    # ========================================
-    # DISCONNECT HANDLING
-    # ========================================
-
     except WebSocketDisconnect:
 
         logger.info(
@@ -525,9 +619,9 @@ async def websocket_endpoint(
 
     except Exception as e:
 
-        logger.error(
+        logger.exception(
             f"[Session {session_id}] "
-            f"WebSocket error: {e}"
+            f"WebSocket fatal error: {e}"
         )
 
     # ========================================
@@ -535,6 +629,13 @@ async def websocket_endpoint(
     # ========================================
 
     finally:
+        
+        session_manager.is_active = False
+
+        logger.info(
+            f"[Session {session_id}] "
+            f"Session marked inactive"
+        )
 
         duration = round(
             time.time()
@@ -543,19 +644,43 @@ async def websocket_endpoint(
         )
 
         # ====================================
-        # SAFE WEBSOCKET CLOSE
+        # SAVE SESSION SUMMARY
         # ====================================
 
-        if (
-            websocket.client_state
-            == WebSocketState.CONNECTED
-        ):
+        try:
 
-            await websocket.close()
+            await asyncio.to_thread(
+                CRMService.save_session_summary,
+                session_id,
+                session_manager,
+                duration
+            )
 
-            logger.info(
-                f"[Session {session_id}] "
-                f"WebSocket connection closed safely"
+        except Exception as summary_error:
+
+            logger.error(
+                f"Session summary save error: "
+                f"{summary_error}"
+            )
+
+        # ====================================
+        # SAFE SOCKET CLOSE
+        # ====================================
+
+        try:
+
+            if (
+                websocket.client_state
+                == WebSocketState.CONNECTED
+            ):
+
+                await websocket.close()
+
+        except Exception as close_error:
+
+            logger.error(
+                f"WebSocket close error: "
+                f"{close_error}"
             )
 
         # ====================================
@@ -563,6 +688,10 @@ async def websocket_endpoint(
         # ====================================
 
         await deepgram_service.close()
+
+        # ====================================
+        # FINAL METRICS
+        # ====================================
 
         logger.info(
             f"[Session {session_id}] "

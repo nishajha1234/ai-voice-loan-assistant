@@ -13,6 +13,20 @@ class StateService:
         transcript=""
     ):
 
+        # ====================================
+        # TERMINAL STATE
+        # ====================================
+
+        # Once a call is ended,
+        # it should never reopen.
+
+        if (
+            current_state
+            == ConversationState.CALL_END
+        ):
+
+            return ConversationState.CALL_END
+
         text = transcript.lower().strip()
 
         # ====================================
@@ -76,10 +90,14 @@ class StateService:
         ]):
 
             return ConversationState.CALLBACK_BOOKING
-        
+
+        # ====================================
+        # ESCALATION REQUEST
+        # ====================================
+
         if intent == IntentType.ESCALATION_REQUEST:
 
-          return ConversationState.ESCALATION
+            return ConversationState.ESCALATION
 
         # ====================================
         # HIGH VALUE LEADS
@@ -90,7 +108,7 @@ class StateService:
             return ConversationState.ESCALATION
 
         # ====================================
-        # INTERESTED → ELIGIBILITY
+        # INTERESTED USERS
         # ====================================
 
         if intent == IntentType.INTERESTED:

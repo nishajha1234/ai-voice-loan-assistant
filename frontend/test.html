@@ -39,6 +39,7 @@
             display: flex;
             gap: 12px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
         button {
@@ -72,6 +73,21 @@
 
             background: #d32f2f;
             color: white;
+        }
+
+        select {
+
+            padding: 12px 16px;
+
+            border-radius: 8px;
+
+            border: 1px solid #ccc;
+
+            font-size: 14px;
+
+            background: white;
+
+            font-weight: bold;
         }
 
         .dashboard-grid {
@@ -175,21 +191,6 @@
             color: red;
         }
 
-        select {
-
-    padding: 12px 16px;
-
-    border-radius: 8px;
-
-    border: 1px solid #ccc;
-
-    font-size: 14px;
-
-    background: white;
-
-    font-weight: bold;
-}
-
     </style>
 
 </head>
@@ -202,34 +203,37 @@
 
     <div class="top-controls">
 
-    <select id="languageSelect">
+        <select id="languageSelect">
 
-        <option value="en">
-            English
-        </option>
+            <option value="en">
+                English
+            </option>
 
-        <option value="hi">
-            Hindi
-        </option>
+            <option value="hi">
+                Hindi
+            </option>
 
-        <option value="multi" selected>
-            Multi
-        </option>
+            <option
+                value="multi"
+                selected
+            >
+                Multilingual
+            </option>
 
-    </select>
+        </select>
 
-    <button id="start">
-        Start Recording
-    </button>
+        <button id="start">
+            Start Recording
+        </button>
 
-    <button
-        id="stop"
-        disabled
-    >
-        Stop Recording
-    </button>
+        <button
+            id="stop"
+            disabled
+        >
+            Stop Recording
+        </button>
 
-</div>
+    </div>
 
     <div class="dashboard-grid">
 
@@ -295,18 +299,18 @@
 
         <div class="card">
 
-    <div class="card-title">
-        Language Mode
-    </div>
+            <div class="card-title">
+                Language Mode
+            </div>
 
-    <div
-        class="card-value"
-        id="languageMode"
-    >
-        English
-    </div>
+            <div
+                class="card-value"
+                id="languageMode"
+            >
+                Multilingual
+            </div>
 
-</div>
+        </div>
 
         <div class="card">
 
@@ -326,7 +330,7 @@
         <div class="card">
 
             <div class="card-title">
-                Transcript Delivery Delay
+                Transcript Delay
             </div>
 
             <div
@@ -334,6 +338,21 @@
                 id="latencyValue"
             >
                 0 ms
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="card-title">
+                AI Response
+            </div>
+
+            <div
+                class="card-value"
+                id="aiResponse"
+            >
+                Waiting...
             </div>
 
         </div>
@@ -346,604 +365,698 @@
 
     <div id="logs"></div>
 
-    <script>
+<script>
 
-        const startButton =
-            document.getElementById("start");
+const startButton =
+    document.getElementById("start");
 
-        const stopButton =
-            document.getElementById("stop");
+const stopButton =
+    document.getElementById("stop");
 
-        const languageSelect =
+const languageSelect =
     document.getElementById(
         "languageSelect"
     );
 
-        const transcriptDiv =
-            document.getElementById("transcript");
+const transcriptDiv =
+    document.getElementById("transcript");
 
-        const logsDiv =
-            document.getElementById("logs");
+const logsDiv =
+    document.getElementById("logs");
 
-        const connectionStatus =
-            document.getElementById(
-                "connectionStatus"
-            );
+const connectionStatus =
+    document.getElementById(
+        "connectionStatus"
+    );
 
-        const sessionIdElement =
-            document.getElementById(
-                "sessionId"
-            );
+const sessionIdElement =
+    document.getElementById(
+        "sessionId"
+    );
 
-        const intentValue =
-            document.getElementById(
-                "intentValue"
-            );
+const intentValue =
+    document.getElementById(
+        "intentValue"
+    );
 
-        const stateValue =
-            document.getElementById(
-                "stateValue"
-            );
+const stateValue =
+    document.getElementById(
+        "stateValue"
+    );
 
-            const languageMode =
+const languageMode =
     document.getElementById(
         "languageMode"
     );
 
-        const transcriptCount =
-            document.getElementById(
-                "transcriptCount"
-            );
-
-        const latencyValue =
-            document.getElementById(
-                "latencyValue"
-            );
-
-        let ws = null;
-
-        let audioContext = null;
-
-        let processor = null;
-
-        let input = null;
-
-        let globalStream = null;
-
-        let keepAliveInterval = null;
-
-        let reconnectAttempts = 0;
-
-        let isRecording = false;
-
-        let finalTranscript = "";
-
-        let finalTranscriptCounter = 0;
-
-        let totalLatency = 0;
-
-        let latencySamples = 0;
-
-
-        function sanitizeHTML(text) {
-
-            const div =
-                document.createElement("div");
-
-            div.textContent = text;
-
-            return div.innerHTML;
-        }
-
-
-        function log(message) {
-
-            console.log(message);
-
-            const line =
-                document.createElement("div");
-
-            line.textContent = message;
-
-            logsDiv.appendChild(line);
-
-            logsDiv.scrollTop =
-                logsDiv.scrollHeight;
-
-            while (
-                logsDiv.children.length > 200
-            ) {
-                logsDiv.removeChild(
-                    logsDiv.firstChild
-                );
-            }
-        }
-
-
-        function updateConnectionStatus(
-            status,
-            connected = false
-        ) {
-
-            connectionStatus.textContent = status;
-
-            connectionStatus.className =
-                connected
-                    ? "card-value connected"
-                    : "card-value disconnected";
-        }
-
-
-        function renderTranscript(
-            interimTranscript = ""
-        ) {
-
-            transcriptDiv.innerHTML = `
-                <div class="final-text">
-                    ${sanitizeHTML(finalTranscript)}
-                </div>
-
-                <div class="interim-text">
-                    ${sanitizeHTML(interimTranscript)}
-                </div>
-            `;
-        }
-
-
-        function floatTo16BitPCM(input) {
-
-            const buffer =
-                new ArrayBuffer(
-                    input.length * 2
-                );
-
-            const view =
-                new DataView(buffer);
-
-            let offset = 0;
-
-            for (let i = 0; i < input.length; i++) {
-
-                let sample = Math.max(
-                    -1,
-                    Math.min(1, input[i])
-                );
-
-                view.setInt16(
-                    offset,
-                    sample < 0
-                        ? sample * 0x8000
-                        : sample * 0x7FFF,
-                    true
-                );
-
-                offset += 2;
-            }
-
-            return buffer;
-        }
-
-
-        function startKeepAlive() {
-
-            stopKeepAlive();
-
-            keepAliveInterval =
-                setInterval(() => {
-
-                    if (
-                        ws &&
-                        ws.readyState === WebSocket.OPEN
-                    ) {
-
-                        ws.send(
-                            JSON.stringify({
-                                type: "ping"
-                            })
-                        );
-                    }
-
-                }, 15000);
-        }
-
-
-        function stopKeepAlive() {
-
-            if (keepAliveInterval) {
-
-                clearInterval(
-                    keepAliveInterval
-                );
-
-                keepAliveInterval = null;
-            }
-        }
-
-
-        async function connectWebSocket() {
-
-            return new Promise((resolve, reject) => {
-
-                const websocketProtocol =
-    window.location.protocol === "https:"
-        ? "wss"
-        : "ws";
-
-const websocketHost =
-    window.location.hostname;
-
-const websocketPort =
-    "8000";
-
-const websocketUrl =
-    `${websocketProtocol}://${websocketHost}:${websocketPort}/ws`;
-
-                log(
-                    `Connecting to ${websocketUrl}`
-                );
-
-                ws = new WebSocket(
-                    websocketUrl
-                );
-
-                ws.binaryType = "arraybuffer";
-
-                ws.onopen = () => {
-
-    reconnectAttempts = 0;
-
-    log(
-        "WebSocket connected"
+const transcriptCount =
+    document.getElementById(
+        "transcriptCount"
     );
 
-    updateConnectionStatus(
-        "Connected",
-        true
+const latencyValue =
+    document.getElementById(
+        "latencyValue"
     );
 
-    const selectedLanguage =
-    languageSelect.value;
+const aiResponseElement =
+    document.getElementById(
+        "aiResponse"
+    );
 
-const languageLabels = {
-    en: "English",
-    hi: "Hindi",
-    multi: "Multilingual"
-};
+let ws = null;
 
-languageMode.textContent =
-    languageLabels[selectedLanguage];
+let audioContext = null;
 
-log(
-    `Language selected: ${selectedLanguage}`
+let processor = null;
+
+let microphoneSource = null;
+
+let silentGain = null;
+
+let mediaStream = null;
+
+let keepAliveInterval = null;
+
+let isRecording = false;
+
+let websocketReady = false;
+
+let finalTranscript = "";
+
+let transcriptCounter = 0;
+
+let totalLatency = 0;
+
+let latencySamples = 0;
+
+let audioChunkCounter = 0;
+
+window.addEventListener(
+    "beforeunload",
+    () => {
+        console.error(
+            "PAGE IS RELOADING"
+        );
+    }
 );
 
-    ws.send(
-        JSON.stringify({
-            type: "language_config",
-            language: selectedLanguage
-        })
-    );
 
-    startKeepAlive();
+function log(message) {
 
-    resolve();
-};
+    console.log(message);
 
-                ws.onmessage = (event) => {
+    const line =
+        document.createElement("div");
 
-                    try {
+    line.textContent = message;
 
-                        const parsed =
-                            JSON.parse(event.data);
+    logsDiv.appendChild(line);
 
-                        if (
-                            parsed.type
-                            === "session_started"
-                        ) {
-
-                            sessionIdElement.textContent =
-                                parsed.session_id;
-
-                            return;
-                        }
-
-                        if (
-                            parsed.type
-                            === "transcript"
-                        ) {
-
-                            const transcript =
-                                parsed.data.transcript;
-
-                            const isFinal =
-                                parsed.data.is_final;
-
-                            const intent =
-                                parsed.data.intent;
-
-                            const state =
-                                parsed.data.state;
-
-                            const transcriptReceivedAt =
-                                parsed.data.transcript_received_at;
-
-                            if (
-                                transcriptReceivedAt
-                            ) {
-
-                                const latency =
-                                    Math.round(
-                                        (
-                                            Date.now() / 1000
-                                            - transcriptReceivedAt
-                                        ) * 1000
-                                    );
-
-                                totalLatency += latency;
-
-                                latencySamples++;
-
-                                latencyValue.textContent =
-                                    `${Math.round(
-                                        totalLatency /
-                                        latencySamples
-                                    )} ms`;
-                            }
-
-                            if (intent) {
-
-                                intentValue.textContent =
-                                    intent;
-                            }
-
-                            if (state) {
-
-                                stateValue.textContent =
-                                    state;
-                            }
-
-                            if (!transcript) {
-                                return;
-                            }
-
-                            if (isFinal) {
-
-                                finalTranscript +=
-                                    transcript + " ";
-
-                                finalTranscriptCounter++;
-
-                                transcriptCount.textContent =
-                                    finalTranscriptCounter;
-
-                                renderTranscript();
-
-                            } else {
-
-                                renderTranscript(
-                                    transcript
-                                );
-                            }
-                        }
-
-                    } catch (error) {
-
-                        log(
-                            `Message parse error: ${error}`
-                        );
-                    }
-                };
-
-                ws.onerror = (error) => {
-
-                    log(
-                        "WebSocket error"
-                    );
-
-                    updateConnectionStatus(
-                        "Error"
-                    );
-
-                    reject(error);
-                };
-
-                ws.onclose = () => {
-
-                    log(
-                        "WebSocket closed"
-                    );
-
-                    updateConnectionStatus(
-                        "Disconnected"
-                    );
-
-                    stopKeepAlive();
-                };
-            });
-        }
+    logsDiv.scrollTop =
+        logsDiv.scrollHeight;
+}
 
 
-        async function startRecording() {
+function sanitizeHTML(text) {
+
+    const div =
+        document.createElement("div");
+
+    div.textContent = text;
+
+    return div.innerHTML;
+}
+
+
+function updateConnectionStatus(
+    status,
+    connected = false
+) {
+
+    connectionStatus.textContent = status;
+
+    connectionStatus.className =
+        connected
+            ? "card-value connected"
+            : "card-value disconnected";
+}
+
+
+function renderTranscript(
+    interimTranscript = ""
+) {
+
+    transcriptDiv.innerHTML = `
+        <div class="final-text">
+            ${sanitizeHTML(finalTranscript)}
+        </div>
+
+        <div class="interim-text">
+            ${sanitizeHTML(interimTranscript)}
+        </div>
+    `;
+}
+
+
+function floatTo16BitPCM(input) {
+
+    const buffer =
+        new ArrayBuffer(
+            input.length * 2
+        );
+
+    const view =
+        new DataView(buffer);
+
+    let offset = 0;
+
+    for (let i = 0; i < input.length; i++) {
+
+        let sample = Math.max(
+            -1,
+            Math.min(1, input[i])
+        );
+
+        view.setInt16(
+            offset,
+            sample < 0
+                ? sample * 0x8000
+                : sample * 0x7FFF,
+            true
+        );
+
+        offset += 2;
+    }
+
+    return buffer;
+}
+
+
+function startKeepAlive() {
+
+    stopKeepAlive();
+
+    keepAliveInterval =
+        setInterval(() => {
 
             try {
 
-                if (isRecording) {
+                if (
+                    ws &&
+                    websocketReady &&
+                    ws.readyState === WebSocket.OPEN
+                ) {
+
+                    ws.send(
+                        JSON.stringify({
+                            type: "ping"
+                        })
+                    );
+                }
+
+            } catch (error) {
+
+                log(
+                    `Keepalive error: ${error}`
+                );
+            }
+
+        }, 15000);
+}
+
+
+function stopKeepAlive() {
+
+    if (keepAliveInterval) {
+
+        clearInterval(
+            keepAliveInterval
+        );
+
+        keepAliveInterval = null;
+    }
+}
+
+
+async function connectWebSocket() {
+
+    return new Promise((resolve, reject) => {
+
+        const protocol =
+            window.location.protocol === "https:"
+                ? "wss"
+                : "ws";
+
+        const host =
+            window.location.hostname;
+
+        const websocketUrl =
+            `${protocol}://${host}:8000/ws`;
+
+        log(
+            `Connecting to ${websocketUrl}`
+        );
+
+        ws = new WebSocket(
+            websocketUrl
+        );
+
+        ws.binaryType = "arraybuffer";
+
+        ws.onopen = () => {
+
+            websocketReady = true;
+
+            updateConnectionStatus(
+                "Connected",
+                true
+            );
+
+            log(
+                "WebSocket connected"
+            );
+
+            const selectedLanguage =
+                languageSelect.value;
+
+            const languageLabels = {
+                en: "English",
+                hi: "Hindi",
+                multi: "Multilingual"
+            };
+
+            languageMode.textContent =
+                languageLabels[selectedLanguage];
+
+            ws.send(
+                JSON.stringify({
+                    type: "language_config",
+                    language: selectedLanguage
+                })
+            );
+
+            startKeepAlive();
+
+            resolve();
+        };
+
+        ws.onmessage = (event) => {
+
+            try {
+
+                let parsed;
+
+                try {
+
+                    parsed = JSON.parse(
+                        event.data
+                    );
+
+                } catch {
+
                     return;
                 }
 
-                finalTranscript = "";
+                if (
+                    parsed.type === "session_started"
+                ) {
 
-                finalTranscriptCounter = 0;
+                    sessionIdElement.textContent =
+                        parsed.session_id;
 
-                totalLatency = 0;
+                    return;
+                }
 
-                latencySamples = 0;
+                if (
+                    parsed.type === "pong"
+                ) {
+                    return;
+                }
 
-                transcriptCount.textContent = "0";
+                if (
+                    parsed.type === "error"
+                ) {
 
-                latencyValue.textContent = "0 ms";
-
-                renderTranscript();
-
-                await connectWebSocket();
-
-                globalStream =
-                    await navigator.mediaDevices.getUserMedia({
-                        audio: {
-                            channelCount: 1,
-                            sampleRate: 16000,
-                            echoCancellation: true,
-                            noiseSuppression: true
-                        }
-                    });
-
-                audioContext =
-                    new AudioContext({
-                        sampleRate: 16000
-                    });
-
-                await audioContext.resume();
-
-                input =
-                    audioContext.createMediaStreamSource(
-                        globalStream
+                    log(
+                        `Server error: ${parsed.message}`
                     );
 
-                processor =
-                    audioContext.createScriptProcessor(
-                        4096,
-                        1,
-                        1
-                    );
+                    return;
+                }
 
-                processor.onaudioprocess = (
-                    event
-                ) => {
+                if (
+                    parsed.type === "transcript"
+                ) {
+
+                    const transcript =
+                        parsed.data.transcript;
+
+                    const isFinal =
+                        parsed.data.is_final;
+
+                    const intent =
+                        parsed.data.intent;
+
+                    const state =
+                        parsed.data.state;
+
+                    const aiResponse =
+                        parsed.data.ai_response;
+
+                    const transcriptReceivedAt =
+                        parsed.data.transcript_received_at;
+
+                    if (intent) {
+
+                        intentValue.textContent =
+                            intent;
+                    }
+
+                    if (state) {
+
+                        stateValue.textContent =
+                            state;
+                    }
+
+                    if (aiResponse) {
+
+                        aiResponseElement.textContent =
+                            aiResponse;
+                    }
 
                     if (
-                        !isRecording ||
-                        !ws ||
-                        ws.readyState !== WebSocket.OPEN
+                        transcriptReceivedAt
                     ) {
+
+                        const latency =
+                            Math.round(
+                                (
+                                    Date.now() / 1000
+                                    - transcriptReceivedAt
+                                ) * 1000
+                            );
+
+                        totalLatency += latency;
+
+                        latencySamples++;
+
+                        latencyValue.textContent =
+                            `${Math.round(
+                                totalLatency /
+                                latencySamples
+                            )} ms`;
+                    }
+
+                    if (!transcript) {
                         return;
                     }
 
-                    const inputData =
-                        event.inputBuffer.getChannelData(0);
+                    if (isFinal) {
 
-                    const pcmData =
-                        floatTo16BitPCM(inputData);
+                        finalTranscript +=
+                            transcript + " ";
 
-                    ws.send(pcmData);
-                };
+                        transcriptCounter++;
 
-                input.connect(processor);
+                        transcriptCount.textContent =
+                            transcriptCounter;
 
-                processor.connect(
-                    audioContext.destination
-                );
+                        renderTranscript();
 
-                isRecording = true;
+                    } else {
 
-                log(
-                    "Recording started"
-                );
-
-                startButton.disabled = true;
-
-                stopButton.disabled = false;
+                        renderTranscript(
+                            transcript
+                        );
+                    }
+                }
 
             } catch (error) {
 
-                console.error(error);
-
                 log(
-                    `Recording error: ${error}`
-                );
-
-                updateConnectionStatus(
-                    "Recording Failed"
+                    `Message parse error: ${error}`
                 );
             }
+        };
+
+        ws.onerror = (error) => {
+
+            console.error(error);
+
+            log(
+                "WebSocket error"
+            );
+
+            reject(error);
+        };
+
+       ws.onclose = (event) => {
+
+    console.error(
+        "WS CLOSED",
+        {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean
+        }
+    );
+
+    websocketReady = false;
+
+    updateConnectionStatus(
+        "Disconnected"
+    );
+
+    stopKeepAlive();
+
+    log(
+        `WebSocket closed (${event.code})`
+    );
+};
+    });
+}
+
+
+async function startRecording() {
+
+    try {
+
+        if (isRecording) {
+            return;
         }
 
+        finalTranscript = "";
 
-        async function stopRecording() {
+        transcriptCounter = 0;
+
+        totalLatency = 0;
+
+        latencySamples = 0;
+
+        audioChunkCounter = 0;
+
+        transcriptCount.textContent = "0";
+
+        latencyValue.textContent = "0 ms";
+
+        renderTranscript();
+
+        await connectWebSocket();
+
+        mediaStream =
+            await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    channelCount: 1,
+                    echoCancellation: true,
+                    noiseSuppression: true
+                }
+            });
+
+        audioContext =
+            new AudioContext({
+                sampleRate: 16000
+            });
+
+        await audioContext.resume();
+
+        microphoneSource =
+            audioContext.createMediaStreamSource(
+                mediaStream
+            );
+
+        processor =
+            audioContext.createScriptProcessor(
+                4096,
+                1,
+                1
+            );
+
+        silentGain =
+            audioContext.createGain();
+
+        silentGain.gain.value = 0.0001;
+
+        microphoneSource.connect(
+            processor
+        );
+
+        processor.connect(
+            silentGain
+        );
+
+        silentGain.connect(
+            audioContext.destination
+        );
+
+        isRecording = true;
+
+        processor.onaudioprocess = (
+            event
+        ) => {
 
             try {
 
-                isRecording = false;
-
-                stopKeepAlive();
-
-                if (processor) {
-
-                    processor.disconnect();
-
-                    processor = null;
+                if (
+                    !isRecording ||
+                    !websocketReady ||
+                    !ws ||
+                    ws.readyState !== WebSocket.OPEN
+                ) {
+                    return;
                 }
 
-                if (input) {
+                const inputData =
+                    event.inputBuffer.getChannelData(0);
 
-                    input.disconnect();
+                const pcmData =
+                    floatTo16BitPCM(inputData);
 
-                    input = null;
+                ws.send(pcmData);
+
+                audioChunkCounter++;
+
+                if (
+                    audioChunkCounter % 50 === 0
+                ) {
+
+                    log(
+                        `Chunks sent: ${audioChunkCounter}`
+                    );
                 }
-
-                if (audioContext) {
-
-                    await audioContext.close();
-
-                    audioContext = null;
-                }
-
-                if (globalStream) {
-
-                    globalStream
-                        .getTracks()
-                        .forEach(
-                            track => track.stop()
-                        );
-
-                    globalStream = null;
-                }
-
-                if (ws) {
-
-                    ws.close();
-
-                    ws = null;
-                }
-
-                log(
-                    "Recording stopped"
-                );
 
             } catch (error) {
 
                 log(
-                    `Stop recording error: ${error}`
+                    `Audio processing error: ${error}`
                 );
             }
+        };
 
-            startButton.disabled = false;
+        startButton.disabled = true;
 
-            stopButton.disabled = true;
-        }
+        stopButton.disabled = false;
 
-
-        window.addEventListener(
-            "beforeunload",
-            stopRecording
+        log(
+            "Recording started"
         );
 
-        startButton.onclick =
-            startRecording;
+    } catch (error) {
 
-        stopButton.onclick =
-            stopRecording;
+        console.error(error);
 
-    </script>
+        log(
+            `Recording error: ${error}`
+        );
+    }
+}
+
+
+async function stopRecording() {
+
+    try {
+
+        isRecording = false;
+
+        stopKeepAlive();
+
+        if (processor) {
+
+            processor.disconnect();
+
+            processor = null;
+        }
+
+        if (microphoneSource) {
+
+            microphoneSource.disconnect();
+
+            microphoneSource = null;
+        }
+
+        if (silentGain) {
+
+            silentGain.disconnect();
+
+            silentGain = null;
+        }
+
+        if (audioContext) {
+
+            await audioContext.close();
+
+            audioContext = null;
+        }
+
+        if (mediaStream) {
+
+            mediaStream
+                .getTracks()
+                .forEach(
+                    track => track.stop()
+                );
+
+            mediaStream = null;
+        }
+
+        if (ws) {
+
+            websocketReady = false;
+
+            ws.close();
+
+            ws = null;
+        }
+
+        log(
+            "Recording stopped"
+        );
+
+    } catch (error) {
+
+        log(
+            `Stop recording error: ${error}`
+        );
+    }
+
+    startButton.disabled = false;
+
+    stopButton.disabled = true;
+}
+
+
+window.addEventListener(
+    "beforeunload",
+    stopRecording
+);
+
+startButton.onclick =
+    startRecording;
+
+stopButton.onclick =
+    stopRecording;
+
+</script>
 
 </body>
 

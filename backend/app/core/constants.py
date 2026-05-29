@@ -75,6 +75,6 @@ class ConversationState(str, Enum):
 
 MIN_AUDIO_CHUNK_SIZE = 100
 
-AUDIO_LOG_INTERVAL = 25
+AUDIO_LOG_INTERVAL = 200
 
 DEBUG_AUDIO_ACKS = False

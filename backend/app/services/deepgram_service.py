@@ -34,6 +34,8 @@ class DeepgramService:
 
         self.connection = None
 
+        self.connection_ready = False
+
         self.transcript_callback = None
 
         self.connection_started_at = None
@@ -41,8 +43,12 @@ class DeepgramService:
         self.total_transcripts = 0
 
         self.total_final_transcripts = 0
-        
+
         self.language = "multi"
+
+    # ========================================
+    # CALLBACK SETTER
+    # ========================================
 
     def set_transcript_callback(
         self,
@@ -51,16 +57,22 @@ class DeepgramService:
 
         self.transcript_callback = callback
 
-    async def setup_connection(
-    self,
-    language="multi"
-):
+    # ========================================
+    # CONNECTION SETUP
+    # ========================================
 
-        if self.connection:
+    async def setup_connection(
+        self,
+        language="multi"
+    ):
+
+        if self.connection_ready:
+
             logger.warning(
-                "Deepgram connection already exists"
+                "Deepgram already connected"
             )
-            return
+
+            return True
 
         try:
 
@@ -87,21 +99,21 @@ class DeepgramService:
                 LiveTranscriptionEvents.Close,
                 self.on_close
             )
-            
+
             self.language = language
 
             options = LiveOptions(
 
-                # Realtime multilingual model
+                # Model
                 model="nova-2",
 
-                # Hindi + English auto-detection
+                # Language
                 language=self.language,
 
-                # Browser PCM format
+                # Audio format
                 encoding="linear16",
 
-                # Mono audio
+                # Mono channel
                 channels=1,
 
                 # Browser sample rate
@@ -116,11 +128,37 @@ class DeepgramService:
                 # Auto punctuation
                 punctuate=True,
 
-                # Fast endpointing
-                endpointing=300,
+                # Faster speech endpoint detection
+                endpointing=500,
+
+                # End-of-utterance timeout
+                utterance_end_ms=2000,
+
+                # Voice activity events
+                vad_events=True,
             )
 
-            self.connection.start(options)
+            logger.info(
+                "Starting Deepgram websocket..."
+            )
+
+            success = self.connection.start(
+                options
+            )
+
+            if not success:
+
+                logger.error(
+                    "Deepgram start returned False"
+                )
+
+                self.connection = None
+
+                self.connection_ready = False
+
+                return False
+
+            self.connection_ready = True
 
             self.connection_started_at = (
                 time.perf_counter()
@@ -130,18 +168,31 @@ class DeepgramService:
                 "Deepgram realtime connection established"
             )
 
+            return True
+
         except Exception as e:
 
             logger.error(
                 f"Deepgram setup error: {e}"
             )
 
-            raise
+            self.connection = None
+
+            self.connection_ready = False
+
+            return False
+
+    # ========================================
+    # STREAM AUDIO
+    # ========================================
 
     def stream_audio(
         self,
         audio_chunk: bytes
     ):
+
+        if not self.connection_ready:
+            return
 
         if not self.connection:
             return
@@ -151,13 +202,21 @@ class DeepgramService:
 
         try:
 
-            self.connection.send(audio_chunk)
+            self.connection.send(
+                audio_chunk
+            )
 
         except Exception as e:
 
             logger.error(
                 f"Deepgram send error: {e}"
             )
+
+            self.connection_ready = False
+
+    # ========================================
+    # CLOSE CONNECTION
+    # ========================================
 
     async def close(self):
 
@@ -166,13 +225,19 @@ class DeepgramService:
 
         try:
 
-            self.connection.finish()
+            if self.connection_ready:
 
-            connection_duration = round(
-                time.perf_counter()
-                - self.connection_started_at,
-                2
-            )
+                self.connection.finish()
+
+            connection_duration = 0
+
+            if self.connection_started_at:
+
+                connection_duration = round(
+                    time.perf_counter()
+                    - self.connection_started_at,
+                    2
+                )
 
             logger.info(
                 f"Deepgram connection closed "
@@ -199,6 +264,12 @@ class DeepgramService:
 
             self.connection = None
 
+            self.connection_ready = False
+
+    # ========================================
+    # EVENTS
+    # ========================================
+
     def on_open(
         self,
         *args,
@@ -208,6 +279,8 @@ class DeepgramService:
         logger.info(
             "Deepgram websocket opened"
         )
+
+        self.connection_ready = True
 
     def on_close(
         self,
@@ -219,6 +292,8 @@ class DeepgramService:
             "Deepgram websocket closed"
         )
 
+        self.connection_ready = False
+
     def on_error(
         self,
         *args,
@@ -229,6 +304,12 @@ class DeepgramService:
             f"Deepgram websocket error: "
             f"{args}"
         )
+
+        self.connection_ready = False
+
+    # ========================================
+    # TRANSCRIPT EVENT
+    # ========================================
 
     def on_message(
         self,
@@ -262,6 +343,7 @@ class DeepgramService:
             )
 
             if result.is_final:
+
                 self.total_final_transcripts += 1
 
             transcript_data = {
@@ -277,8 +359,8 @@ class DeepgramService:
                 ),
 
                 "transcript_received_at": (
-    time.time()
-)
+                    time.time()
+                )
             }
 
             logger.info(

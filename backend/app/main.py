@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import WebSocket
-
+from app.db.database import engine
+from app.db.models import Base
 from app.api.health import router as health_router
 from app.api.voice import router as voice_router
 
@@ -10,7 +11,9 @@ from app.websocket.call_ws import websocket_endpoint
 from app.core.config import settings
 
 from app.utils.logger import logger
+from fastapi.responses import FileResponse
 
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME
@@ -31,6 +34,12 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(voice_router)
 
+@app.get("/test")
+async def serve_test_page():
+
+    return FileResponse(
+        "../frontend/test.html"
+    )
 
 @app.get("/")
 async def root():
