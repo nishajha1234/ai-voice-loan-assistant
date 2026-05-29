@@ -452,6 +452,11 @@ let latencySamples = 0;
 
 let audioChunkCounter = 0;
 
+let speechQueue = [];
+let isSpeaking = false;
+let aiSpeaking = false;
+let lastAiResponse = "";
+
 window.addEventListener(
     "beforeunload",
     () => {
@@ -518,6 +523,88 @@ function renderTranscript(
     `;
 }
 
+function speakText(
+    text,
+    language = "en"
+) {
+
+    if (!text) {
+        return;
+    }
+
+    speechQueue.push({
+        text,
+        language
+    });
+
+    processSpeechQueue();
+}
+
+function processSpeechQueue() {
+
+    if (
+        isSpeaking ||
+        speechQueue.length === 0
+    ) {
+        return;
+    }
+
+    isSpeaking = true;
+
+    const item =
+        speechQueue.shift();
+
+    const utterance =
+        new SpeechSynthesisUtterance(
+            item.text
+        );
+
+    if (
+        item.language === "hi"
+    ) {
+
+        utterance.lang = "hi-IN";
+
+    } else {
+
+        utterance.lang = "en-US";
+    }
+
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    utterance.onstart = () => {
+
+        aiSpeaking = true;
+
+        log(
+            `AI Speaking: ${item.text}`
+        );
+    };
+
+    utterance.onend = () => {
+
+        aiSpeaking = false;
+
+        isSpeaking = false;
+
+        processSpeechQueue();
+    };
+
+    utterance.onerror = () => {
+
+        aiSpeaking = false;
+
+        isSpeaking = false;
+
+        processSpeechQueue();
+    };
+
+    speechSynthesis.speak(
+        utterance
+    );
+}
 
 function floatTo16BitPCM(input) {
 
@@ -739,11 +826,21 @@ async function connectWebSocket() {
                             state;
                     }
 
-                    if (aiResponse) {
+                    if (
+                    aiResponse &&
+                    aiResponse !== lastAiResponse
+                ) {
 
-                        aiResponseElement.textContent =
-                            aiResponse;
-                    }
+                    lastAiResponse = aiResponse;
+
+                    aiResponseElement.textContent =
+                        aiResponse;
+
+                    speakText(
+                        aiResponse,
+                        languageSelect.value
+                    );
+                }
 
                     if (
                         transcriptReceivedAt
@@ -915,6 +1012,10 @@ async function startRecording() {
             event
         ) => {
 
+            if (aiSpeaking) {
+    return;
+}
+
             try {
 
                 if (
@@ -1018,6 +1119,12 @@ async function stopRecording() {
 
             mediaStream = null;
         }
+
+        speechSynthesis.cancel();
+
+speechQueue = [];
+
+isSpeaking = false;
 
         if (ws) {
 
