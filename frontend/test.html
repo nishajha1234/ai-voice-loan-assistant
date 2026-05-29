@@ -495,6 +495,36 @@
 
 </div>
 
+<div class="card">
+
+    <div class="card-title">
+        Intent Accuracy
+    </div>
+
+    <div
+        class="card-value"
+        id="intentAccuracy"
+    >
+        0%
+    </div>
+
+</div>
+
+<div class="card">
+
+    <div class="card-title">
+        False Positive Rate
+    </div>
+
+    <div
+        class="card-value"
+        id="falsePositiveRate"
+    >
+        0%
+    </div>
+
+</div>
+
     </div>
 
     <div id="transcript">
@@ -747,6 +777,16 @@ const negativeCount =
         "hotLeadCount"
     );
 
+    const intentAccuracy =
+    document.getElementById(
+        "intentAccuracy"
+    );
+
+const falsePositiveRate =
+    document.getElementById(
+        "falsePositiveRate"
+    );
+
 const hotLeadsBody =
     document.getElementById(
         "hotLeadsBody"
@@ -834,22 +874,39 @@ async function loadDashboardMetrics() {
         negativeCount.textContent =
             sentiment.negative;
 
-    } catch (error) {
+        const hotLeadResponse =
+            await fetch(
+                "http://127.0.0.1:8000/dashboard/hot-leads"
+            );
+
+        const hotLeadData =
+            await hotLeadResponse.json();
+
+        hotLeadCount.textContent =
+            hotLeadData.count;
+
+        const metricsResponse =
+            await fetch(
+                "http://127.0.0.1:8000/dashboard/intent-metrics"
+            );
+
+        const metrics =
+            await metricsResponse.json();
+
+        intentAccuracy.textContent =
+            `${metrics.intent_accuracy}%`;
+
+        falsePositiveRate.textContent =
+            `${metrics.false_positive_rate}%`;    
+    }          
+
+    catch (error) {
 
         console.error(error);
     }
-
-    const hotLeadResponse =
-    await fetch(
-        "http://127.0.0.1:8000/dashboard/hot-leads"
-    );
-
-const hotLeadData =
-    await hotLeadResponse.json();
-
-hotLeadCount.textContent =
-    hotLeadData.count;
 }
+
+   
 
 async function loadTranscripts() {
 

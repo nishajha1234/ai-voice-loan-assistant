@@ -11,8 +11,6 @@ class IntentService:
 
         # English
         "interested",
-        "yes",
-        "okay",
         "tell me more",
         "loan details",
         "need loan",
@@ -31,8 +29,6 @@ class IntentService:
         # Hindi
         "मुझे लोन चाहिए",
         "जानकारी",
-        "हाँ",
-        "ठीक है",
         "दिलचस्पी",
         "लोन चाहिए",
         "मुझे जानकारी चाहिए",
@@ -259,6 +255,23 @@ class IntentService:
 
     "human se baat",
 ]
+    
+    CALL_END_KEYWORDS = [
+
+    "thank you",
+    "thanks",
+    "okay thank you",
+    "bye",
+    "goodbye",
+    "see you",
+    "talk later",
+    "have a nice day",
+
+    "धन्यवाद",
+    "ठीक है धन्यवाद",
+
+    "thankyou",
+]
 
     # ========================================
     # NORMALIZATION
@@ -297,109 +310,70 @@ class IntentService:
 
     @classmethod
     def detect_intent(
-        cls,
-        transcript: str
+    cls,
+    transcript: str
     ):
 
         text = cls.normalize_text(transcript)
-
-        # ====================================
-        # ANGRY
-        # ====================================
-
-        if cls.contains_keyword(
-            text,
-            cls.ANGRY_KEYWORDS
-        ):
-
-            return IntentType.ANGRY
-        
-        if cls.contains_keyword(
-    text,
-    cls.ESCALATION_KEYWORDS
-):
-
-         return IntentType.ESCALATION_REQUEST
-
-        # ====================================
-        # HIGH TICKET
-        # ====================================
-
-        if cls.contains_keyword(
-            text,
-            cls.HIGH_TICKET_KEYWORDS
-        ):
-
-            return IntentType.HIGH_TICKET
-
-        # ====================================
-        # CALLBACK
-        # ====================================
-
-        if cls.contains_keyword(
-            text,
-            cls.CALLBACK_KEYWORDS
-        ):
-
-            return IntentType.CALLBACK
-
-        # ====================================
-        # EMI QUERY
-        # ====================================
-
-        if cls.contains_keyword(
-            text,
-            cls.EMI_KEYWORDS
-        ):
-
-            return IntentType.EMI_QUERY
-
-        # ====================================
-        # DOCUMENT QUERY
-        # ====================================
-
-        if cls.contains_keyword(
-            text,
-            cls.DOCUMENT_KEYWORDS
-        ):
-
-            return IntentType.DOCUMENT_QUERY
-
-        # ====================================
-        # INTERESTED
-        # ====================================
-
-        if cls.contains_keyword(
-            text,
-            cls.INTERESTED_KEYWORDS
-        ):
-
-            return IntentType.INTERESTED
-
-        # ====================================
-        # CONFUSED
-        # ====================================
-
-        if cls.contains_keyword(
-            text,
-            cls.CONFUSED_KEYWORDS
-        ):
-
-            return IntentType.CONFUSED
-
-        # ====================================
-        # SPAM
-        # ====================================
 
         if cls.contains_keyword(
             text,
             cls.SPAM_KEYWORDS
         ):
-
             return IntentType.SPAM
 
-        # ====================================
-        # DEFAULT
-        # ====================================
+        if cls.contains_keyword(
+            text,
+            cls.ANGRY_KEYWORDS
+        ):
+            return IntentType.ANGRY
+
+        if cls.contains_keyword(
+            text,
+            cls.CALL_END_KEYWORDS
+        ):
+            return IntentType.CALL_END
+
+        if cls.contains_keyword(
+            text,
+            cls.ESCALATION_KEYWORDS
+        ):
+            return IntentType.ESCALATION_REQUEST
+
+        if cls.contains_keyword(
+            text,
+            cls.HIGH_TICKET_KEYWORDS
+        ):
+            return IntentType.HIGH_TICKET
+
+        if cls.contains_keyword(
+            text,
+            cls.CALLBACK_KEYWORDS
+        ):
+            return IntentType.CALLBACK
+
+        if cls.contains_keyword(
+            text,
+            cls.CONFUSED_KEYWORDS
+        ):
+            return IntentType.CONFUSED
+
+        if cls.contains_keyword(
+            text,
+            cls.EMI_KEYWORDS
+        ):
+            return IntentType.EMI_QUERY
+
+        if cls.contains_keyword(
+            text,
+            cls.DOCUMENT_KEYWORDS
+        ):
+            return IntentType.DOCUMENT_QUERY
+
+        if cls.contains_keyword(
+            text,
+            cls.INTERESTED_KEYWORDS
+        ):
+            return IntentType.INTERESTED
 
         return IntentType.UNKNOWN

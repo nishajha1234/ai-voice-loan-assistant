@@ -236,6 +236,66 @@ async def hot_leads():
 
         db.close()
         
+@router.get("/intent-metrics")
+async def intent_metrics():
+
+    db = SessionLocal()
+
+    try:
+
+        total_transcripts = (
+            db.query(TranscriptLog)
+            .count()
+        )
+
+        unknown_intents = (
+            db.query(TranscriptLog)
+            .filter(
+                TranscriptLog.detected_intent
+                == "IntentType.UNKNOWN"
+            )
+            .count()
+        )
+
+        if total_transcripts == 0:
+
+            false_positive_rate = 0
+            intent_accuracy = 0
+
+        else:
+
+            false_positive_rate = round(
+                (
+                    unknown_intents
+                    / total_transcripts
+                ) * 100,
+                2
+            )
+
+            intent_accuracy = round(
+                100 - false_positive_rate,
+                2
+            )
+
+        return {
+
+            "total_transcripts":
+                total_transcripts,
+
+            "unknown_intents":
+                unknown_intents,
+
+            "false_positive_rate":
+                false_positive_rate,
+
+            "intent_accuracy":
+                intent_accuracy
+        }
+
+    finally:
+
+        db.close()        
+        
 @router.get("/recent-calls")
 async def recent_calls():
 

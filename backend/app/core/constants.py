@@ -35,6 +35,8 @@ class IntentType(str, Enum):
     UNKNOWN = "UNKNOWN"
     
     ESCALATION_REQUEST = "ESCALATION_REQUEST"
+    
+    CALL_END = "CALL_END"
 
 
 # ============================================
