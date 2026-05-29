@@ -43,6 +43,17 @@ from app.services.sentiment_service import (
 from app.services.tts_service import (
     TTSService
 )
+from app.services.notification_service import (
+    NotificationService
+)
+
+from app.services.slack_service import (
+    SlackService
+)
+
+from app.core.constants import (
+    IntentType
+)
 
 import uuid
 import time
@@ -389,6 +400,16 @@ async def websocket_endpoint(
             current_intent = (
                 session_manager.current_intent
             )
+            
+            if current_intent in [
+                IntentType.INTERESTED,
+                IntentType.HIGH_TICKET
+            ]:
+
+                NotificationService.send_hot_lead_alert(
+                    transcript,
+                    str(current_intent)
+    )
 
             current_state = (
                 session_manager.current_state
@@ -450,6 +471,24 @@ async def websocket_endpoint(
         transcript=transcript
     )
 )
+                
+                if current_intent in [
+                    IntentType.INTERESTED,
+                    IntentType.HIGH_TICKET
+                ]:
+
+                    SlackService.send_alert(
+                        f"""
+                🔥 Hot Lead Detected
+
+                Session: {session_id}
+
+                Intent: {current_intent}
+
+                Transcript:
+                {transcript}
+                """
+                    )
                 
                 audio_file = (
     TTSService.generate_audio(
