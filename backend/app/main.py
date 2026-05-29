@@ -12,6 +12,9 @@ from app.core.config import settings
 
 from app.utils.logger import logger
 from fastapi.responses import FileResponse
+from app.api.dashboard import (
+    router as dashboard_router
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -33,6 +36,9 @@ app.add_middleware(
 # Register Routers
 app.include_router(health_router)
 app.include_router(voice_router)
+app.include_router(
+    dashboard_router
+)
 
 @app.get("/test")
 async def serve_test_page():

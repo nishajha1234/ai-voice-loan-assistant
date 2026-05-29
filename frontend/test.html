@@ -357,11 +357,121 @@
 
         </div>
 
+        <div class="card">
+    <div class="card-title">
+        Total Calls
+    </div>
+
+    <div
+        class="card-value"
+        id="totalCalls"
+    >
+        0
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">
+        Interested Leads
+    </div>
+
+    <div
+        class="card-value"
+        id="interestedLeads"
+    >
+        0
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">
+        Callbacks
+    </div>
+
+    <div
+        class="card-value"
+        id="callbackLeads"
+    >
+        0
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">
+        High Ticket
+    </div>
+
+    <div
+        class="card-value"
+        id="highTicketLeads"
+    >
+        0
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">
+        Angry Customers
+    </div>
+
+    <div
+        class="card-value"
+        id="angryCustomers"
+    >
+        0
+    </div>
+</div>
+
     </div>
 
     <div id="transcript">
         Waiting for transcript...
     </div>
+
+    <h2>
+    Recent Transcripts
+</h2>
+
+<table
+    id="transcriptTable"
+    border="1"
+    width="100%"
+    cellpadding="10"
+    style="
+        background:white;
+        margin-bottom:20px;
+        border-collapse:collapse;
+    "
+>
+    <thead>
+
+        <tr>
+
+            <th>
+                Transcript
+            </th>
+
+            <th>
+                Intent
+            </th>
+
+            <th>
+                State
+            </th>
+
+            <th>
+                Time
+            </th>
+
+        </tr>
+
+    </thead>
+
+    <tbody id="transcriptBody">
+
+    </tbody>
+
+</table>
 
     <div id="logs"></div>
 
@@ -424,6 +534,36 @@ const aiResponseElement =
         "aiResponse"
     );
 
+const transcriptBody =
+    document.getElementById(
+        "transcriptBody"
+    );    
+
+const totalCalls =
+    document.getElementById(
+        "totalCalls"
+    );
+
+const interestedLeads =
+    document.getElementById(
+        "interestedLeads"
+    );
+
+const callbackLeads =
+    document.getElementById(
+        "callbackLeads"
+    );
+
+const highTicketLeads =
+    document.getElementById(
+        "highTicketLeads"
+    );
+
+const angryCustomers =
+    document.getElementById(
+        "angryCustomers"
+    );
+
 let ws = null;
 
 let audioContext = null;
@@ -456,6 +596,89 @@ let speechQueue = [];
 let isSpeaking = false;
 let aiSpeaking = false;
 let lastAiResponse = "";
+
+async function loadDashboardMetrics() {
+
+    try {
+
+        const response =
+            await fetch(
+                "http://127.0.0.1:8000/dashboard/summary"
+            );
+
+        const data =
+            await response.json();
+
+        totalCalls.textContent =
+            data.total_calls;
+
+        interestedLeads.textContent =
+            data.interested;
+
+        callbackLeads.textContent =
+            data.callbacks;
+
+        highTicketLeads.textContent =
+            data.high_ticket;
+
+        angryCustomers.textContent =
+            data.angry;
+
+    } catch (error) {
+
+        console.error(error);
+    }
+}
+
+async function loadTranscripts() {
+
+    try {
+
+        const response =
+            await fetch(
+                "http://127.0.0.1:8000/dashboard/transcripts"
+            );
+
+        const data =
+            await response.json();
+
+        transcriptBody.innerHTML = "";
+
+        data.forEach(item => {
+
+            const row =
+                document.createElement("tr");
+
+            row.innerHTML = `
+
+                <td>
+                    ${item.transcript}
+                </td>
+
+                <td>
+                    ${item.intent}
+                </td>
+
+                <td>
+                    ${item.state}
+                </td>
+
+                <td>
+                    ${item.created_at}
+                </td>
+
+            `;
+
+            transcriptBody.appendChild(
+                row
+            );
+        });
+
+    } catch (error) {
+
+        console.error(error);
+    }
+}
 
 window.addEventListener(
     "beforeunload",
@@ -1156,6 +1379,17 @@ window.addEventListener(
     "beforeunload",
     stopRecording
 );
+
+loadDashboardMetrics();
+loadTranscripts();
+
+setInterval(() => {
+
+    loadDashboardMetrics();
+
+    loadTranscripts();
+
+}, 5000);
 
 startButton.onclick =
     startRecording;
