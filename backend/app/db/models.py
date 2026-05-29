@@ -64,6 +64,11 @@ class TranscriptLog(Base):
     detected_intent = Column(String)
 
     conversation_state = Column(String)
+    
+    sentiment = Column(
+    String,
+    nullable=True
+)
 
     ai_response = Column(Text)
 
@@ -71,3 +76,5 @@ class TranscriptLog(Base):
         DateTime,
         default=datetime.utcnow
     )
+    
+    

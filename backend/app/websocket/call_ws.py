@@ -37,6 +37,10 @@ from app.core.constants import (
 
 from app.utils.logger import logger
 
+from app.services.sentiment_service import (
+    SentimentService
+)
+
 import uuid
 import time
 import asyncio
@@ -386,6 +390,8 @@ async def websocket_endpoint(
             )
 
             ai_response = ""
+            
+            sentiment = "NEUTRAL"
 
             # ====================================
             # FINAL TRANSCRIPT FLOW
@@ -400,6 +406,12 @@ async def websocket_endpoint(
                 session_manager.add_transcript(
                     transcript
                 )
+                
+                sentiment = (
+    SentimentService.detect_sentiment(
+        transcript
+    )
+)
 
                 current_intent = (
                     IntentService.detect_intent(
@@ -462,6 +474,7 @@ async def websocket_endpoint(
                         transcript_type=transcript_type,
                         intent=str(current_intent),
                         state=str(current_state),
+                        sentiment=sentiment,
                         ai_response=ai_response
                     )
 
@@ -482,6 +495,11 @@ async def websocket_endpoint(
             transcript_data["state"] = (
                 current_state
             )
+            
+            transcript_data["sentiment"] = (
+    sentiment
+)
+
 
             transcript_data["ai_response"] = (
                 ai_response

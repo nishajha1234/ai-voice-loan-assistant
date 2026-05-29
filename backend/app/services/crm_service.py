@@ -17,6 +17,7 @@ class CRMService:
         transcript_type,
         intent,
         state,
+        sentiment,
         ai_response
     ):
 
@@ -35,8 +36,10 @@ class CRMService:
                 detected_intent=str(intent),
 
                 conversation_state=str(state),
+                
+                sentiment=sentiment,
 
-                ai_response=ai_response
+                ai_response=ai_response,
             )
 
             db.add(entry)
