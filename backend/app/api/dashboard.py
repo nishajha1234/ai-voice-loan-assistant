@@ -161,6 +161,80 @@ async def sentiment_summary():
     finally:
 
         db.close()        
+
+@router.get("/hot-leads")
+async def hot_leads():
+
+    db = SessionLocal()
+
+    try:
+
+        hot_lead_intents = [
+
+            "IntentType.INTERESTED",
+
+            "IntentType.CALLBACK",
+
+            "IntentType.HIGH_TICKET"
+        ]
+
+        hot_leads_count = (
+
+            db.query(TranscriptLog)
+
+            .filter(
+                TranscriptLog.detected_intent.in_(
+                    hot_lead_intents
+                )
+            )
+
+            .count()
+        )
+
+        recent_hot_leads = (
+
+            db.query(TranscriptLog)
+
+            .filter(
+                TranscriptLog.detected_intent.in_(
+                    hot_lead_intents
+                )
+            )
+
+            .order_by(
+                TranscriptLog.created_at.desc()
+            )
+
+            .limit(20)
+
+            .all()
+        )
+
+        return {
+
+            "count":
+                hot_leads_count,
+
+            "recent": [
+
+                {
+                    "transcript":
+                        item.transcript,
+
+                    "intent":
+                        item.detected_intent,
+
+                    "created_at":
+                        item.created_at
+                }
+
+                for item in recent_hot_leads
+            ]
+        }
+
+    finally:
+
+        db.close()
         
 @router.get("/recent-calls")
 async def recent_calls():

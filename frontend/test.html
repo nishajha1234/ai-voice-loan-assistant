@@ -480,6 +480,21 @@
 
 </div>
 
+<div class="card">
+
+    <div class="card-title">
+        Hot Leads
+    </div>
+
+    <div
+        class="card-value"
+        id="hotLeadCount"
+    >
+        0
+    </div>
+
+</div>
+
     </div>
 
     <div id="transcript">
@@ -565,6 +580,47 @@
     </thead>
 
     <tbody id="callsBody">
+
+    </tbody>
+
+</table>
+
+<h2>
+    Recent Hot Leads
+</h2>
+
+<table
+    id="hotLeadsTable"
+    border="1"
+    width="100%"
+    cellpadding="10"
+    style="
+        background:white;
+        margin-bottom:20px;
+        border-collapse:collapse;
+    "
+>
+    <thead>
+
+        <tr>
+
+            <th>
+                Transcript
+            </th>
+
+            <th>
+                Intent
+            </th>
+
+            <th>
+                Time
+            </th>
+
+        </tr>
+
+    </thead>
+
+    <tbody id="hotLeadsBody">
 
     </tbody>
 
@@ -686,6 +742,16 @@ const negativeCount =
         "negativeCount"
     );
 
+    const hotLeadCount =
+    document.getElementById(
+        "hotLeadCount"
+    );
+
+const hotLeadsBody =
+    document.getElementById(
+        "hotLeadsBody"
+    );
+
 let ws = null;
 
 let audioContext = null;
@@ -759,8 +825,6 @@ async function loadDashboardMetrics() {
         const sentiment =
             await sentimentResponse.json();
 
-
-
         positiveCount.textContent =
             sentiment.positive;
 
@@ -774,6 +838,17 @@ async function loadDashboardMetrics() {
 
         console.error(error);
     }
+
+    const hotLeadResponse =
+    await fetch(
+        "http://127.0.0.1:8000/dashboard/hot-leads"
+    );
+
+const hotLeadData =
+    await hotLeadResponse.json();
+
+hotLeadCount.textContent =
+    hotLeadData.count;
 }
 
 async function loadTranscripts() {
@@ -870,6 +945,52 @@ async function loadRecentCalls() {
             `;
 
             callsBody.appendChild(
+                row
+            );
+        });
+
+    } catch (error) {
+
+        console.error(error);
+    }
+}
+
+async function loadHotLeads() {
+
+    try {
+
+        const response =
+            await fetch(
+                "http://127.0.0.1:8000/dashboard/hot-leads"
+            );
+
+        const data =
+            await response.json();
+
+        hotLeadsBody.innerHTML = "";
+
+        data.recent.forEach(item => {
+
+            const row =
+                document.createElement("tr");
+
+            row.innerHTML = `
+
+                <td>
+                    ${item.transcript}
+                </td>
+
+                <td>
+                    ${item.intent}
+                </td>
+
+                <td>
+                    ${item.created_at}
+                </td>
+
+            `;
+
+            hotLeadsBody.appendChild(
                 row
             );
         });
@@ -1586,6 +1707,8 @@ loadTranscripts();
 
 loadRecentCalls();
 
+loadHotLeads();
+
 setInterval(() => {
 
     loadDashboardMetrics();
@@ -1593,6 +1716,8 @@ setInterval(() => {
     loadTranscripts();
 
     loadRecentCalls();
+
+    loadHotLeads();
 
 }, 5000);
 
