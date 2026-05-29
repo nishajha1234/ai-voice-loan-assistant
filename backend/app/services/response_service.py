@@ -48,10 +48,6 @@ class ResponseService:
 
         is_hindi = language == "hi"
 
-        # ====================================
-        # TERMINAL STATES
-        # ====================================
-
         if state == ConversationState.CALL_END:
 
             if is_hindi:
@@ -71,10 +67,6 @@ class ResponseService:
                 "I will connect you "
                 "to a human agent shortly."
             )
-
-        # ====================================
-        # INTENT RESPONSES
-        # ====================================
 
         if intent == IntentType.ANGRY:
 

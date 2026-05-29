@@ -57,10 +57,6 @@ class DeepgramService:
 
         self.transcript_callback = callback
 
-    # ========================================
-    # CONNECTION SETUP
-    # ========================================
-
     async def setup_connection(
         self,
         language="multi"
@@ -182,10 +178,6 @@ class DeepgramService:
 
             return False
 
-    # ========================================
-    # STREAM AUDIO
-    # ========================================
-
     def stream_audio(
         self,
         audio_chunk: bytes
@@ -213,10 +205,6 @@ class DeepgramService:
             )
 
             self.connection_ready = False
-
-    # ========================================
-    # CLOSE CONNECTION
-    # ========================================
 
     async def close(self):
 
@@ -266,10 +254,6 @@ class DeepgramService:
 
             self.connection_ready = False
 
-    # ========================================
-    # EVENTS
-    # ========================================
-
     def on_open(
         self,
         *args,
@@ -306,10 +290,6 @@ class DeepgramService:
         )
 
         self.connection_ready = False
-
-    # ========================================
-    # TRANSCRIPT EVENT
-    # ========================================
 
     def on_message(
         self,

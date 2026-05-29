@@ -67,10 +67,6 @@ import base64
 import os
 import shutil
 
-# ============================================
-# SAFE JSON SENDER
-# ============================================
-
 async def safe_send_json(
     websocket: WebSocket,
     payload: dict
@@ -98,11 +94,6 @@ async def safe_send_json(
             f"Safe websocket send error: {e}"
         )
 
-
-# ============================================
-# PING HANDLER
-# ============================================
-
 async def handle_ping(
     websocket: WebSocket
 ):
@@ -113,11 +104,6 @@ async def handle_ping(
             "type": "pong"
         }
     )
-
-
-# ============================================
-# TEXT MESSAGE HANDLER
-# ============================================
 
 async def handle_text_message(
     websocket: WebSocket,
@@ -136,19 +122,11 @@ async def handle_text_message(
 
         parsed = json.loads(text_data)
 
-        # ====================================
-        # KEEPALIVE PING
-        # ====================================
-
         if parsed.get("type") == "ping":
 
             await handle_ping(websocket)
 
             return
-
-        # ====================================
-        # LANGUAGE CONFIG
-        # ====================================
 
         if parsed.get("type") == "language_config":
 
@@ -165,10 +143,6 @@ async def handle_text_message(
                 f"Language set to: "
                 f"{selected_language}"
             )
-
-            # ====================================
-            # INITIALIZE DEEPGRAM
-            # ====================================
 
             if not deepgram_service.connection_ready:
 
@@ -234,11 +208,6 @@ async def handle_text_message(
         }
     )
 
-
-# ============================================
-# AUDIO CHUNK HANDLER
-# ============================================
-
 async def handle_audio_chunk(
     websocket: WebSocket,
     audio_chunk: bytes,
@@ -252,10 +221,6 @@ async def handle_audio_chunk(
     if chunk_size < MIN_AUDIO_CHUNK_SIZE:
         return
 
-    # ========================================
-    # REDUCE EXCESSIVE LOGGING
-    # ========================================
-
     if chunk_number % AUDIO_LOG_INTERVAL == 0:
 
         logger.info(
@@ -263,10 +228,6 @@ async def handle_audio_chunk(
             f"Chunk #{chunk_number} "
             f"({chunk_size} bytes)"
         )
-
-    # ========================================
-    # STREAM AUDIO
-    # ========================================
 
     try:
 
@@ -286,10 +247,6 @@ async def handle_audio_chunk(
             f"Audio streaming error: {e}"
         )
 
-    # ========================================
-    # OPTIONAL DEBUG ACKS
-    # ========================================
-
     if DEBUG_AUDIO_ACKS:
 
         await safe_send_json(
@@ -301,21 +258,12 @@ async def handle_audio_chunk(
             }
         )
 
-
-# ============================================
-# MAIN WEBSOCKET ENDPOINT
-# ============================================
-
 async def websocket_endpoint(
     websocket: WebSocket
 ):
 
     await websocket.accept()
     RecordingService.initialize()
-
-    # ========================================
-    # SESSION SETUP
-    # ========================================
 
     session_id = str(uuid.uuid4())
 
@@ -333,10 +281,6 @@ async def websocket_endpoint(
         f"{websocket.client}"
     )
 
-    # ========================================
-    # SESSION START EVENT
-    # ========================================
-
     await safe_send_json(
         websocket,
         {
@@ -346,17 +290,9 @@ async def websocket_endpoint(
         }
     )
 
-    # ========================================
-    # DEEPGRAM SERVICE
-    # ========================================
-
     deepgram_service = DeepgramService()
 
     loop = asyncio.get_running_loop()
-
-    # ========================================
-    # TRANSCRIPT HANDLER
-    # ========================================
 
     async def handle_transcript(
         transcript_data: dict
@@ -416,10 +352,6 @@ async def websocket_endpoint(
             
             audio_bytes = None
             audio_file = None
-
-            # ====================================
-            # FINAL TRANSCRIPT FLOW
-            # ====================================
 
             if is_final:
 
@@ -562,10 +494,6 @@ async def websocket_endpoint(
                         f"CRM save error: {db_error}"
                     )
 
-            # ====================================
-            # RESPONSE PAYLOAD
-            # ====================================
-
             transcript_data["intent"] = (
                 current_intent
             )
@@ -583,10 +511,6 @@ async def websocket_endpoint(
                 ai_response
             )
 
-            # ====================================
-            # SEND TO FRONTEND
-            # ====================================
-
             await safe_send_json(
                 websocket,
                 {
@@ -602,10 +526,6 @@ async def websocket_endpoint(
             logger.error(
                 f"handle_transcript error: {e}"
             )
-
-    # ========================================
-    # THREADSAFE CALLBACK BRIDGE
-    # ========================================
 
     def transcript_callback(
         transcript_data: dict
@@ -643,19 +563,11 @@ async def websocket_endpoint(
         transcript_callback
     )
 
-    # ========================================
-    # MAIN RECEIVE LOOP
-    # ========================================
-
     try:
 
         while True:
 
             message = await websocket.receive()
-
-            # ====================================
-            # DISCONNECT
-            # ====================================
 
             if (
                 message["type"]
@@ -668,10 +580,6 @@ async def websocket_endpoint(
                 )
 
                 break
-
-            # ====================================
-            # TEXT EVENTS
-            # ====================================
 
             text_data = message.get("text")
 
@@ -686,10 +594,6 @@ async def websocket_endpoint(
                 )
 
                 continue
-
-            # ====================================
-            # AUDIO EVENTS
-            # ====================================
 
             audio_chunk = message.get("bytes")
 
@@ -726,10 +630,6 @@ async def websocket_endpoint(
             f"WebSocket fatal error: {e}"
         )
 
-    # ========================================
-    # CLEANUP
-    # ========================================
-
     finally:
         
         session_manager.is_active = False
@@ -744,10 +644,6 @@ async def websocket_endpoint(
             - connection_start_time,
             2
         )
-
-        # ====================================
-        # SAVE SESSION SUMMARY
-        # ====================================
 
         try:
 
@@ -765,10 +661,6 @@ async def websocket_endpoint(
                 f"{summary_error}"
             )
 
-        # ====================================
-        # SAFE SOCKET CLOSE
-        # ====================================
-
         try:
 
             if (
@@ -785,10 +677,6 @@ async def websocket_endpoint(
                 f"{close_error}"
             )
 
-        # ====================================
-        # FINALIZE RECORDING
-        # ====================================
-
         try:
             RecordingService.finalize(
                 session_id
@@ -800,15 +688,7 @@ async def websocket_endpoint(
                 f"Recording finalize error: {e}"
             )
 
-        # ====================================
-        # CLOSE DEEPGRAM
-        # ====================================
-
         await deepgram_service.close()
-
-        # ====================================
-        # FINAL METRICS
-        # ====================================
 
         logger.info(
                 f"[Session {session_id}] "

@@ -3,13 +3,7 @@ from app.core.constants import IntentType
 
 class IntentService:
 
-    # ========================================
-    # INTERESTED
-    # ========================================
-
     INTERESTED_KEYWORDS = [
-
-        # English
         "interested",
         "tell me more",
         "loan details",
@@ -25,15 +19,11 @@ class IntentService:
         "car loan",
         "loan required",
         "need personal loan",
-
-        # Hindi
         "मुझे लोन चाहिए",
         "जानकारी",
         "दिलचस्पी",
         "लोन चाहिए",
         "मुझे जानकारी चाहिए",
-
-        # Hinglish
         "loan chahiye",
         "loan lena hai",
         "loan lena chahta",
@@ -44,51 +34,31 @@ class IntentService:
         "loan apply karna hai",
     ]
 
-    # ========================================
-    # CONFUSED
-    # ========================================
-
     CONFUSED_KEYWORDS = [
-
-        # English
         "confused",
         "don't understand",
         "not clear",
         "can you repeat",
         "explain again",
         "didn't understand",
-
-        # Hindi
         "समझ नहीं आया",
         "फिर से बताइए",
         "समझाइए",
-
-        # Hinglish
         "samajh nahi aya",
         "samajh nahi aaya",
     ]
 
-    # ========================================
-    # ANGRY
-    # ========================================
-
     ANGRY_KEYWORDS = [
-
-        # English
         "angry",
         "stop calling",
         "irritated",
         "don't call",
         "not interested",
         "remove my number",
-
-        # Hindi
         "कॉल मत करो",
         "परेशान",
         "गुस्सा",
         "मुझे कॉल मत करो",
-
-        # Hinglish
         "call mat karo",
         "pareshan mat karo",
         "number hatao",
@@ -97,22 +67,16 @@ class IntentService:
         "dobara call mat karna",
         "faltu call",
         "do not call",
-"do not keep calling",
-"keep calling",
-"calling repeatedly",
-"irritating",
-"annoying",
-"frustrating",
-"stop calling me",
+        "do not keep calling",
+        "keep calling",
+        "calling repeatedly",
+        "irritating",
+        "annoying",
+        "frustrating",
+        "stop calling me",
     ]
 
-    # ========================================
-    # HIGH TICKET
-    # ========================================
-
     HIGH_TICKET_KEYWORDS = [
-
-        # English
         "large amount",
         "high amount",
         "big loan",
@@ -120,44 +84,24 @@ class IntentService:
         "50 lakh",
         "1 crore",
         "business loan",
-
-        # Hindi
         "बड़ा लोन",
         "पचास लाख",
         "एक करोड़",
-
-        # Hinglish
         "bada loan",
         "high amount loan",
     ]
 
-    # ========================================
-    # SPAM
-    # ========================================
-
     SPAM_KEYWORDS = [
-
-        # English
         "wrong number",
         "spam",
         "scam",
         "fake call",
-
-        # Hindi
         "गलत नंबर",
         "स्पैम",
-
-        # Hinglish
         "galat number",
     ]
 
-    # ========================================
-    # CALLBACK
-    # ========================================
-
     CALLBACK_KEYWORDS = [
-
-        # English
         "call later",
         "callback",
         "busy now",
@@ -168,13 +112,12 @@ class IntentService:
         "please call later",
         "please call me later",
         "call me tomorrow",
-
-        # Hindi
         "बाद में कॉल करना",
         "अभी बिजी हूं",
         "कल कॉल करना",
-
-        # Hinglish
+        "अभी मैं busy हूं",
+        "कल call करना", 
+        "कल बात करते हैं"
         "baad mein call karo",
         "abhi busy hoon",
         "busy hoon",
@@ -186,13 +129,7 @@ class IntentService:
         "thodi der baad call karo",
     ]
 
-    # ========================================
-    # EMI QUERY
-    # ========================================
-
     EMI_KEYWORDS = [
-
-        # English
         "emi",
         "monthly emi",
         "monthly payment",
@@ -200,25 +137,15 @@ class IntentService:
         "interest rate",
         "installment",
         "loan emi",
-
-        # Hindi
         "ईएमआई",
         "मासिक भुगतान",
         "ब्याज दर",
-
-        # Hinglish
         "emi kitni",
         "monthly emi kya",
         "emi kya hogi",
     ]
 
-    # ========================================
-    # DOCUMENT QUERY
-    # ========================================
-
     DOCUMENT_KEYWORDS = [
-
-        # English
         "documents",
         "document",
         "aadhaar",
@@ -229,35 +156,27 @@ class IntentService:
         "bank statement",
         "kyc",
         "papers required",
-
-        # Hindi
         "दस्तावेज",
         "आधार",
         "पैन कार्ड",
-
-        # Hinglish
         "documents kya lagenge",
         "aadhaar card",
         "pan card chahiye",
     ]
     
     ESCALATION_KEYWORDS = [
-
     "human agent",
     "senior agent",
     "talk to manager",
     "real person",
     "connect me",
-
     "agent से connect",
     "senior agent",
     "manager से बात",
-
     "human se baat",
 ]
     
     CALL_END_KEYWORDS = [
-
     "thank you",
     "thanks",
     "okay thank you",
@@ -266,16 +185,10 @@ class IntentService:
     "see you",
     "talk later",
     "have a nice day",
-
     "धन्यवाद",
     "ठीक है धन्यवाद",
-
     "thankyou",
 ]
-
-    # ========================================
-    # NORMALIZATION
-    # ========================================
 
     @staticmethod
     def normalize_text(text: str):
@@ -289,10 +202,6 @@ class IntentService:
             .replace("!", "")
         )
 
-    # ========================================
-    # KEYWORD HELPER
-    # ========================================
-
     @staticmethod
     def contains_keyword(
         text: str,
@@ -303,10 +212,6 @@ class IntentService:
             keyword in text
             for keyword in keywords
         )
-
-    # ========================================
-    # DETECT INTENT
-    # ========================================
 
     @classmethod
     def detect_intent(

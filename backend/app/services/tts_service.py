@@ -1,5 +1,3 @@
-# app/services/tts_service.py
-
 from deepgram import (
     DeepgramClient,
     SpeakOptions
