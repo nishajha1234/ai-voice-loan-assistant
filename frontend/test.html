@@ -422,6 +422,19 @@
     </div>
 </div>
 
+<div class="card">
+    <div class="card-title">
+        Conversion Rate
+    </div>
+
+    <div
+        class="card-value"
+        id="conversionRate"
+    >
+        0%
+    </div>
+</div>
+
     </div>
 
     <div id="transcript">
@@ -608,6 +621,11 @@ const angryCustomers =
         "angryCustomers"
     );
 
+const conversionRate =
+    document.getElementById(
+        "conversionRate"
+    );    
+
 let ws = null;
 
 let audioContext = null;
@@ -667,6 +685,9 @@ async function loadDashboardMetrics() {
 
         angryCustomers.textContent =
             data.angry;
+
+        conversionRate.textContent =
+    `${data.conversion_rate}%`;    
 
     } catch (error) {
 

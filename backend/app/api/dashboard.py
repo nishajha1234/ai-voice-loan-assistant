@@ -66,14 +66,46 @@ async def dashboard_summary():
             )
             .count()
         )
+        conversion_count = (
+            interested
+            + callbacks
+            + high_ticket
+        )
+
+        conversion_rate = 0
+
+        if total_calls > 0:
+
+            conversion_rate = round(
+                (
+                    conversion_count
+                    / total_calls
+                ) * 100,
+                2
+            )
 
         return {
-            "total_calls": total_calls,
-            "total_transcripts": total_transcripts,
-            "interested": interested,
-            "callbacks": callbacks,
-            "high_ticket": high_ticket,
-            "angry": angry
+
+            "total_calls":
+                total_calls,
+
+            "total_transcripts":
+                total_transcripts,
+
+            "interested":
+                interested,
+
+            "callbacks":
+                callbacks,
+
+            "high_ticket":
+                high_ticket,
+
+            "angry":
+                angry,
+
+            "conversion_rate":
+                conversion_rate
         }
 
     finally:
