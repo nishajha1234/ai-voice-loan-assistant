@@ -435,6 +435,51 @@
     </div>
 </div>
 
+<div class="card">
+
+    <div class="card-title">
+        Positive Conversations
+    </div>
+
+    <div
+        class="card-value"
+        id="positiveCount"
+    >
+        0
+    </div>
+
+</div>
+
+<div class="card">
+
+    <div class="card-title">
+        Neutral Conversations
+    </div>
+
+    <div
+        class="card-value"
+        id="neutralCount"
+    >
+        0
+    </div>
+
+</div>
+
+<div class="card">
+
+    <div class="card-title">
+        Negative Conversations
+    </div>
+
+    <div
+        class="card-value"
+        id="negativeCount"
+    >
+        0
+    </div>
+
+</div>
+
     </div>
 
     <div id="transcript">
@@ -624,7 +669,22 @@ const angryCustomers =
 const conversionRate =
     document.getElementById(
         "conversionRate"
-    );    
+    ); 
+    
+const positiveCount =
+    document.getElementById(
+        "positiveCount"
+    );
+
+const neutralCount =
+    document.getElementById(
+        "neutralCount"
+    );
+
+const negativeCount =
+    document.getElementById(
+        "negativeCount"
+    );
 
 let ws = null;
 
@@ -687,7 +747,28 @@ async function loadDashboardMetrics() {
             data.angry;
 
         conversionRate.textContent =
-    `${data.conversion_rate}%`;    
+            `${data.conversion_rate}%`;
+
+
+
+        const sentimentResponse =
+            await fetch(
+                "http://127.0.0.1:8000/dashboard/sentiment"
+            );
+
+        const sentiment =
+            await sentimentResponse.json();
+
+
+
+        positiveCount.textContent =
+            sentiment.positive;
+
+        neutralCount.textContent =
+            sentiment.neutral;
+
+        negativeCount.textContent =
+            sentiment.negative;
 
     } catch (error) {
 

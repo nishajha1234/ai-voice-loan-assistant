@@ -111,7 +111,56 @@ async def dashboard_summary():
     finally:
 
         db.close()
-        
+
+@router.get("/sentiment")
+async def sentiment_summary():
+
+    db = SessionLocal()
+
+    try:
+
+        positive = (
+            db.query(TranscriptLog)
+            .filter(
+                TranscriptLog.sentiment
+                == "POSITIVE"
+            )
+            .count()
+        )
+
+        neutral = (
+            db.query(TranscriptLog)
+            .filter(
+                TranscriptLog.sentiment
+                == "NEUTRAL"
+            )
+            .count()
+        )
+
+        negative = (
+            db.query(TranscriptLog)
+            .filter(
+                TranscriptLog.sentiment
+                == "NEGATIVE"
+            )
+            .count()
+        )
+
+        return {
+
+            "positive":
+                positive,
+
+            "neutral":
+                neutral,
+
+            "negative":
+                negative
+        }
+
+    finally:
+
+        db.close()        
         
 @router.get("/recent-calls")
 async def recent_calls():
